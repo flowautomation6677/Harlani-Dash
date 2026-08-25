@@ -48,19 +48,27 @@ export default function RelatoriosMensaisPage() {
   const handleExportExcel = async () => {
     try {
       const fullData = await getClientData(selectedCompany.id);
+      let periodLabel = 'Ano 2026';
+      if (selectedMonth === '2026-m') {
+        periodLabel = 'Mês Atual';
+      } else if (selectedMonth === '2026-q') {
+        periodLabel = 'Último Trimestre';
+      }
+
       exportFinancialsToExcel({
         company: selectedCompany,
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `Relatório Executivo Gageia Gestão (${selectedMonth === '2026-m' ? 'Mês Atual' : selectedMonth === '2026-q' ? 'Último Trimestre' : 'Ano 2026'})`
+        period: `Relatório Executivo Gageia Gestão (${periodLabel})`
       });
-    } catch (e) {
+    } catch (error) {
+      console.error("Erro ao exportar relatório:", error);
       alert("Erro ao exportar relatório.");
     }
   };
 
-  const handleSendEmail = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendEmail = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!emailInput) return;
     setEmailModalOpen(false);
