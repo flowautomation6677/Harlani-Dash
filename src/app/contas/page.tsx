@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { getAccountsSummary, AccountsPayableReceivableSummary, Transaction } from '@/lib/api/niboClient';
+import { getAccountsSummary, AccountsPayableReceivableSummary } from '@/lib/api/niboClient';
 import { 
   FileText, 
   ArrowUpRight, 
@@ -10,15 +10,22 @@ import {
   AlertTriangle, 
   Search, 
   Filter, 
-  CheckCircle, 
-  Clock, 
   Download, 
   Plus, 
-  Activity,
   Check
 } from 'lucide-react';
 
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+
+function getStatusBadgeConfig(status: string) {
+  if (status === 'pago') {
+    return { className: 'badge-success', label: 'Liquidado' };
+  }
+  if (status === 'pendente') {
+    return { className: 'badge-warning', label: 'A Vencer' };
+  }
+  return { className: 'badge-danger', label: 'Atrasado' };
+}
 
 export default function ContasPage() {
   const { selectedCompany } = useCompany();
@@ -80,11 +87,11 @@ export default function ContasPage() {
 
         {/* Ações */}
         <div className="flex items-center gap-3 flex-wrap">
-          <button className="btn btn-outline gap-2 text-xs">
+          <button type="button" className="btn btn-outline gap-2 text-xs">
             <Download size={16} />
             Exportar Relatório
           </button>
-          <button className="btn btn-primary gap-2 text-xs">
+          <button type="button" className="btn btn-primary gap-2 text-xs">
             <Plus size={16} />
             Novo Título
           </button>
@@ -102,11 +109,8 @@ export default function ContasPage() {
           <div className="text-2xl font-bold text-success mb-1">
             R$ {data.totalReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden mt-2 mb-1">
-            <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(pctRecebido, 100)}%` }} />
-          </div>
           <div className="text-xs text-muted">
-            Recebido: <strong className="text-success">R$ {data.totalRecebido.toLocaleString('pt-BR')}</strong> ({pctRecebido.toFixed(0)}%)
+            Liquidado: <strong className="text-success">R$ {data.totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> ({pctRecebido.toFixed(1)}%)
           </div>
         </div>
 
@@ -119,33 +123,26 @@ export default function ContasPage() {
           <div className="text-2xl font-bold text-danger mb-1">
             R$ {data.totalPagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden mt-2 mb-1">
-            <div className="bg-red-500 h-full" style={{ width: `${Math.min(pctPago, 100)}%` }} />
-          </div>
           <div className="text-xs text-muted">
-            Pago: <strong className="text-danger">R$ {data.totalPago.toLocaleString('pt-BR')}</strong> ({pctPago.toFixed(0)}%)
+            Pago: <strong className="text-danger">R$ {data.totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> ({pctPago.toFixed(1)}%)
           </div>
         </div>
 
-        {/* Títulos em Atraso */}
+        {/* Inadimplência / Atrasadas */}
         <div className="card">
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-semibold text-muted">TÍTULOS EM ATRASO</span>
-            <AlertTriangle size={18} className="text-warning" />
+            <AlertTriangle size={18} className="text-danger" />
           </div>
-          <div className="text-2xl font-bold text-warning mb-1">
+          <div className="text-2xl font-bold text-danger mb-1">
             R$ {(data.totalAtrasadoReceber + data.totalAtrasadoPagar).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-muted mt-2">
-            {data.countAtrasados > 0 ? (
-              <span className="text-danger font-semibold">{data.countAtrasados} títulos vencidos requerem cobrança</span>
-            ) : (
-              <span className="text-success font-semibold">Nenhum título em atraso!</span>
-            )}
+          <div className="text-xs text-muted">
+            Contas pendentes que ultrapassaram o vencimento
           </div>
         </div>
 
-        {/* Balanço Projetado */}
+        {/* Saldo Líquido Projetado */}
         <div className="card">
           <div className="text-xs font-semibold text-muted mb-2">BALANÇO LÍQUIDO PROJETADO</div>
           <div className={`text-2xl font-bold mb-1 ${(data.totalReceber - data.totalPagar) >= 0 ? 'text-primary' : 'text-danger'}`}>
@@ -160,18 +157,21 @@ export default function ContasPage() {
         {/* Abas por Tipo de Conta */}
         <div className="tabs-container">
           <button 
+            type="button"
             className={`tab-btn ${typeFilter === 'all' ? 'active' : ''}`}
             onClick={() => setTypeFilter('all')}
           >
             Todas as Contas
           </button>
           <button 
+            type="button"
             className={`tab-btn ${typeFilter === 'receita' ? 'active' : ''}`}
             onClick={() => setTypeFilter('receita')}
           >
             A Receber (Entradas)
           </button>
           <button 
+            type="button"
             className={`tab-btn ${typeFilter === 'despesa' ? 'active' : ''}`}
             onClick={() => setTypeFilter('despesa')}
           >
@@ -188,24 +188,28 @@ export default function ContasPage() {
 
           <div className="tabs-container">
             <button 
+              type="button"
               className={`tab-btn ${statusFilter === 'all' ? 'active' : ''}`}
               onClick={() => setStatusFilter('all')}
             >
               Todos
             </button>
             <button 
+              type="button"
               className={`tab-btn ${statusFilter === 'pago' ? 'active' : ''}`}
               onClick={() => setStatusFilter('pago')}
             >
               Pago / Baixado
             </button>
             <button 
+              type="button"
               className={`tab-btn ${statusFilter === 'pendente' ? 'active' : ''}`}
               onClick={() => setStatusFilter('pendente')}
             >
               Pendente
             </button>
             <button 
+              type="button"
               className={`tab-btn ${statusFilter === 'atrasado' ? 'active' : ''}`}
               onClick={() => setStatusFilter('atrasado')}
             >
@@ -250,49 +254,49 @@ export default function ContasPage() {
                   </td>
                 </tr>
               ) : (
-                filteredAccounts.map(acc => (
-                  <tr key={acc.id}>
-                    <td>
-                      <div className="font-semibold text-sm">{acc.description}</div>
-                      <div className="text-xs text-muted font-mono">{acc.documentNumber}</div>
-                    </td>
-                    <td>
-                      <div className="text-sm font-medium text-secondary">{acc.clientSupplier}</div>
-                    </td>
-                    <td>
-                      <span className="badge badge-primary text-xs">
-                        {acc.category}
-                      </span>
-                    </td>
-                    <td className="text-sm font-medium text-muted">
-                      {acc.dueDate}
-                    </td>
-                    <td>
-                      <span className={`badge ${
-                        acc.status === 'pago' ? 'badge-success' : 
-                        acc.status === 'pendente' ? 'badge-warning' : 'badge-danger'
-                      }`}>
-                        {acc.status === 'pago' ? 'Liquidado' : acc.status === 'pendente' ? 'A Vencer' : 'Atrasado'}
-                      </span>
-                    </td>
-                    <td className="text-right font-bold text-sm">
-                      <span className={acc.type === 'receita' ? 'text-success' : 'text-danger'}>
-                        {acc.type === 'receita' ? '+ ' : '- '}
-                        R$ {acc.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      {acc.status !== 'pago' ? (
-                        <button className="btn btn-outline text-xs p-1 px-2 gap-1 text-primary hover:bg-blue-50">
-                          <Check size={14} />
-                          Dar Baixa
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted font-semibold">Baixado</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                filteredAccounts.map(acc => {
+                  const statusBadge = getStatusBadgeConfig(acc.status);
+                  return (
+                    <tr key={acc.id}>
+                      <td>
+                        <div className="font-semibold text-sm">{acc.description}</div>
+                        <div className="text-xs text-muted font-mono">{acc.documentNumber}</div>
+                      </td>
+                      <td>
+                        <div className="text-sm font-medium text-secondary">{acc.clientSupplier}</div>
+                      </td>
+                      <td>
+                        <span className="badge badge-primary text-xs">
+                          {acc.category}
+                        </span>
+                      </td>
+                      <td className="text-sm font-medium text-muted">
+                        {acc.dueDate}
+                      </td>
+                      <td>
+                        <span className={`badge ${statusBadge.className}`}>
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td className="text-right font-bold text-sm">
+                        <span className={acc.type === 'receita' ? 'text-success' : 'text-danger'}>
+                          {acc.type === 'receita' ? '+ ' : '- '}
+                          R$ {acc.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="text-center">
+                        {acc.status !== 'pago' ? (
+                          <button type="button" className="btn btn-outline text-xs p-1 px-2 gap-1 text-primary hover:bg-blue-50">
+                            <Check size={14} />
+                            Dar Baixa
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted font-semibold">Baixado</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

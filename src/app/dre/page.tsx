@@ -15,10 +15,42 @@ import {
   TrendingUp, 
   PieChart as PieIcon, 
   FileSpreadsheet,
-  Info,
-  Target,
-  ShieldCheck
+  Info
 } from 'lucide-react';
+
+function getPeriodDescription(period: string) {
+  if (period === '2026-m') return 'Mês Atual';
+  if (period === '2026-q') return 'Último Trimestre';
+  return 'Ano YTD';
+}
+
+function getItemRowStyle(item: { type: string; isBold?: boolean }) {
+  if (item.type === 'lucro') {
+    return { className: 'bg-emerald-50 font-bold', style: { backgroundColor: 'rgba(16, 185, 129, 0.08)', fontWeight: 'bold' } };
+  }
+  if (item.type === 'subtotal') {
+    return { className: 'bg-blue-50 font-bold', style: { backgroundColor: 'rgba(59, 130, 246, 0.06)', fontWeight: 'bold' } };
+  }
+  if (item.isBold) {
+    return { className: 'bg-gray-50 font-bold', style: { backgroundColor: '#f8fafc', fontWeight: '600' } };
+  }
+  return { className: '', style: {} };
+}
+
+function getItemValueDisplay(item: { value: number; type: string }) {
+  const formatted = Math.abs(item.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  if (item.value < 0) {
+    return {
+      text: `(${formatted})`,
+      className: 'text-danger font-medium'
+    };
+  }
+  const isHighlight = item.type === 'lucro' || item.type === 'subtotal';
+  return {
+    text: item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    className: isHighlight ? 'text-primary font-bold' : 'font-semibold'
+  };
+}
 
 export default function DREPage() {
   const { selectedCompany } = useCompany();
@@ -54,9 +86,10 @@ export default function DREPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `DRE Analítico Harlani Gestão (${period === '2026-m' ? 'Mês Atual' : period === '2026-q' ? 'Último Trimestre' : 'Ano YTD'})`
+        period: `DRE Analítico Harlani Gestão (${getPeriodDescription(period)})`
       });
     } catch (e) {
+      console.error("Erro ao exportar o DRE:", e);
       alert("Erro ao exportar o DRE.");
     }
   };
@@ -69,16 +102,6 @@ export default function DREPage() {
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     item.code.includes(searchTerm)
   );
-
-  // Dados para o gráfico sintético da estrutura do DRE
-  const chartData = [
-    { name: 'Rec. Bruta', valor: dre.receitaBruta, color: 'var(--primary)' },
-    { name: 'Deduções', valor: Math.abs(dre.impostosDeducoes), color: 'var(--warning)' },
-    { name: 'Custos', valor: Math.abs(dre.custosVendas), color: '#f87171' },
-    { name: 'Lucro Bruto', valor: dre.lucroBruto, color: 'var(--secondary)' },
-    { name: 'Desp. Oper.', valor: Math.abs(dre.despesasOperacionais), color: '#ef4444' },
-    { name: 'Lucro Líq.', valor: dre.lucroLiquido, color: 'var(--purple)' },
-  ];
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
@@ -103,18 +126,21 @@ export default function DREPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="tabs-container">
             <button 
+              type="button"
               className={`tab-btn ${period === '2026-m' ? 'active' : ''}`}
               onClick={() => setPeriod('2026-m')}
             >
               Mês Atual
             </button>
             <button 
+              type="button"
               className={`tab-btn ${period === '2026-q' ? 'active' : ''}`}
               onClick={() => setPeriod('2026-q')}
             >
               Último Trimestre
             </button>
             <button 
+              type="button"
               className={`tab-btn ${period === '2026-ytd' ? 'active' : ''}`}
               onClick={() => setPeriod('2026-ytd')}
             >
@@ -122,11 +148,11 @@ export default function DREPage() {
             </button>
           </div>
 
-          <button className="btn btn-outline gap-2 text-xs" onClick={() => window.print()}>
+          <button type="button" className="btn btn-outline gap-2 text-xs" onClick={() => window.print()}>
             <Printer size={16} />
             Imprimir
           </button>
-          <button onClick={handleExport} className="btn btn-primary gap-2 text-xs">
+          <button type="button" onClick={handleExport} className="btn btn-primary gap-2 text-xs">
             <FileSpreadsheet size={16} />
             Exportar Excel
           </button>
@@ -140,43 +166,34 @@ export default function DREPage() {
           <div className="text-2xl font-bold text-primary mb-1">
             R$ {dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-muted">100% das vendas deduzidas</div>
+          <div className="text-xs text-muted">
+            Faturamento Bruto: R$ {dre.receitaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </div>
         </div>
 
         <div className="card">
           <div className="text-xs font-semibold text-muted mb-2">LUCRO BRUTO</div>
-          <div className="text-2xl font-bold text-success mb-1">
+          <div className="text-2xl font-bold text-secondary mb-1">
             R$ {dre.lucroBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-muted">
-            Margem: <strong>{((dre.lucroBruto / dre.receitaBruta) * 100).toFixed(1)}%</strong>
+            Margem Bruta: <strong className="text-secondary">{((dre.lucroBruto / (dre.receitaBruta || 1)) * 100).toFixed(1)}%</strong>
           </div>
         </div>
 
         <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">EBITDA (LAJIDA)</div>
+          <div className="text-xs font-semibold text-muted mb-2">EBITDA (OPERACIONAL)</div>
           <div className="text-2xl font-bold text-purple mb-1">
             R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="flex items-center gap-1 text-xs text-purple font-semibold">
-            <TrendingUp size={14} />
-            <span>Margem EBITDA: {health.margemEbitda.toFixed(1)}%</span>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">PONTO DE EQUILÍBRIO</div>
-          <div className="text-2xl font-bold text-amber-600 mb-1" style={{ color: '#d97706' }}>
-            R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
           <div className="text-xs text-muted">
-            Folga: <strong>{health.breakEven.safetyMarginPercent.toFixed(1)}%</strong>
+            Margem EBITDA: <strong className="text-purple">{health.margemEbitda.toFixed(1)}%</strong>
           </div>
         </div>
 
         <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">LUCRO LÍQUIDO</div>
-          <div className="text-2xl font-bold text-emerald-600 mb-1" style={{ color: '#059669' }}>
+          <div className="text-xs font-semibold text-muted mb-2">RESULTADO LÍQUIDO</div>
+          <div className={`text-2xl font-bold mb-1 ${dre.lucroLiquido >= 0 ? 'text-success' : 'text-danger'}`}>
             R$ {dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-muted">
@@ -238,15 +255,15 @@ export default function DREPage() {
       <div className="card">
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
           <div>
-            <h3 className="font-bold text-lg">DRE Detalhado por Conta</h3>
-            <p className="text-xs text-muted">Estrutura de contas com percentual de análise vertical</p>
+            <h3 className="font-bold text-lg">Detalhamento do DRE Analítico</h3>
+            <p className="text-xs text-muted">Contas organizadas conforme plano de contas padrão contábil</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="custom-select-container" style={{ padding: '0.4rem 0.75rem' }}>
             <input 
               type="text" 
-              placeholder="Filtrar conta ou código..." 
-              className="text-xs p-2 border border-gray-200 rounded-md outline-none focus:border-primary"
+              placeholder="Filtrar conta contábil..." 
+              className="custom-select" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '220px' }}
@@ -266,24 +283,14 @@ export default function DREPage() {
             </thead>
             <tbody>
               {filteredItems.map(item => {
-                const isSubtotal = item.type === 'subtotal';
-                const isLucro = item.type === 'lucro';
-                const isReceita = item.type === 'receita' && item.isBold;
-
-                let rowStyle = '';
-                if (isLucro) rowStyle = 'bg-emerald-50 font-bold';
-                else if (isSubtotal) rowStyle = 'bg-blue-50 font-bold';
-                else if (isReceita) rowStyle = 'bg-gray-50 font-bold';
+                const rowStyle = getItemRowStyle(item);
+                const valueDisplay = getItemValueDisplay(item);
 
                 return (
                   <tr 
                     key={item.id} 
-                    className={rowStyle}
-                    style={
-                      isLucro ? { backgroundColor: 'rgba(16, 185, 129, 0.08)', fontWeight: 'bold' } :
-                      isSubtotal ? { backgroundColor: 'rgba(59, 130, 246, 0.06)', fontWeight: 'bold' } :
-                      item.isBold ? { backgroundColor: '#f8fafc', fontWeight: '600' } : {}
-                    }
+                    className={rowStyle.className}
+                    style={rowStyle.style}
                   >
                     <td className="text-muted text-xs font-mono">{item.code}</td>
                     <td>
@@ -292,11 +299,8 @@ export default function DREPage() {
                       </div>
                     </td>
                     <td className="text-right text-sm">
-                      <span className={
-                        item.value < 0 ? 'text-danger font-medium' : 
-                        isLucro || isSubtotal ? 'text-primary font-bold' : 'font-semibold'
-                      }>
-                        {item.value < 0 ? `(${Math.abs(item.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})` : item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <span className={valueDisplay.className}>
+                        {valueDisplay.text}
                       </span>
                     </td>
                     <td className="text-right text-sm font-mono">
