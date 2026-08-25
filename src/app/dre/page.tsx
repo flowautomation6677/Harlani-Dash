@@ -12,7 +12,6 @@ import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { 
   Printer, 
-  TrendingUp, 
   PieChart as PieIcon, 
   FileSpreadsheet,
   Info
