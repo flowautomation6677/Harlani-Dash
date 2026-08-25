@@ -1,4 +1,12 @@
 export { COMPANIES, type Company } from '@/lib/constants/companies';
+import { validateAndFilterItems, validateItem } from '@/lib/api/niboValidation';
+import {
+  NiboCreditScheduleSchema,
+  NiboDebitScheduleSchema,
+  NiboBankAccountSchema,
+  type NiboCreditSchedule,
+  type NiboDebitSchedule,
+} from '@/lib/api/niboSchemas';
 
 export type TransactionType = 'receita' | 'despesa';
 export type TransactionStatus = 'pago' | 'pendente' | 'atrasado';
@@ -662,18 +670,21 @@ export const getBankAccounts = async (companyId: string): Promise<BankAccount[]>
 
   try {
     const res = await fetchNiboData('accounts');
-    const items = res?.items || [];
-    return items.map((acc: any) => ({
-      id: acc.id,
-      name: acc.name,
-      bankName: acc.bankName || 'Conta Corrente',
-      openBalance: acc.openBalance || 0,
-      type: acc.type || 'BankAccount',
-      bankAgency: acc.bankAgency || '',
-      bankAccount: acc.bankAccount || '',
-      isVirtual: !!acc.isVirtual,
-      isAutomated: !!acc.isAutomated
-    }));
+    const items: unknown[] = res?.items || [];
+    return items
+      .map((raw) => validateItem(raw, NiboBankAccountSchema, 'accounts'))
+      .filter(Boolean)
+      .map((acc) => ({
+        id: acc!.id || acc!.accountId || '',
+        name: acc!.name,
+        bankName: acc!.bankName || 'Conta Corrente',
+        openBalance: acc!.openBalance || 0,
+        type: acc!.type || 'BankAccount',
+        bankAgency: acc!.bankAgency || '',
+        bankAccount: acc!.bankAccount || '',
+        isVirtual: !!acc!.isVirtual,
+        isAutomated: !!acc!.isAutomated
+      }));
   } catch (error) {
     console.error('Erro ao buscar contas bancárias Nibo:', error);
     return [];
@@ -738,9 +749,16 @@ export const getClientData = async (companyId: string) => {
     const mappedTransactions: Transaction[] = [];
     const now = Date.now();
 
-    rawCredits.forEach((item: any) => {
+    // Validar contratos de dados com Zod antes de processar
+    const validCredits = validateAndFilterItems<typeof NiboCreditScheduleSchema>(
+      rawCredits,
+      NiboCreditScheduleSchema,
+      'schedules/credit'
+    );
+
+    validCredits.forEach((item: NiboCreditSchedule) => {
       const catObj = item.categories && item.categories.length > 0 ? item.categories[0] : null;
-      const catId = catObj?.categoryId || item.category?.id;
+      const catId = catObj?.categoryId || (item as any).category?.id;
       const cachedCat = catId && categoryTree[catId] ? categoryTree[catId] : null;
 
       let status: TransactionStatus = 'pendente';
@@ -750,25 +768,25 @@ export const getClientData = async (companyId: string) => {
         status = 'atrasado';
       }
 
-      const category = catObj?.categoryName || item.category?.name || cachedCat?.name || 'Vendas/Serviços';
+      const category = catObj?.categoryName || (item as any).category?.name || cachedCat?.name || 'Vendas/Serviços';
       const parentCategory = catObj?.parent || cachedCat?.parentName || 'Receitas operacionais';
       const description = item.description || 'Recebimento';
 
-      // Liquidação real (juros, multas e descontos)
-      const receipts = Array.isArray(item.receipts) ? item.receipts : [];
+      // Liquidação real (juros, multas e descontos) — tipados pelo Zod
+      const receipts = item.receipts || [];
       let interestValue = 0;
       let fineValue = 0;
       let discountValue = 0;
-      let paidValue = item.value || 0;
-      let settlementDate = item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+      let paidValue = item.value;
+      let settlementDate = item.dueDate.split('T')[0];
 
       if (receipts.length > 0) {
-        interestValue = receipts.reduce((acc: number, r: any) => acc + (r.interestValue || 0), 0);
-        fineValue = receipts.reduce((acc: number, r: any) => acc + (r.fineValue || 0), 0);
-        discountValue = receipts.reduce((acc: number, r: any) => acc + (r.discountValue || 0), 0);
-        paidValue = receipts.reduce((acc: number, r: any) => acc + (r.netValue || r.value || 0), 0);
+        interestValue = receipts.reduce((acc, r) => acc + (r.interestValue || 0), 0);
+        fineValue = receipts.reduce((acc, r) => acc + (r.fineValue || 0), 0);
+        discountValue = receipts.reduce((acc, r) => acc + (r.discountValue || 0), 0);
+        paidValue = receipts.reduce((acc, r) => acc + (r.netValue || r.value || 0), 0);
         if (receipts[0].receiptDate || receipts[0].date) {
-          settlementDate = (receipts[0].receiptDate || receipts[0].date).split('T')[0];
+          settlementDate = (receipts[0].receiptDate || receipts[0].date)!.split('T')[0];
         }
       } else if (item.paidDate) {
         settlementDate = item.paidDate.split('T')[0];
@@ -777,15 +795,15 @@ export const getClientData = async (companyId: string) => {
       const tag = classifyTransactionTag(category, parentCategory, description, 'receita');
 
       mappedTransactions.push({
-        id: item.scheduleId || item.id,
+        id: item.scheduleId || item.id || '',
         description,
-        value: item.value || 0,
+        value: item.value,
         paidValue: item.isPaid ? paidValue : undefined,
         interestValue: interestValue > 0 ? interestValue : undefined,
         fineValue: fineValue > 0 ? fineValue : undefined,
         discountValue: discountValue > 0 ? discountValue : undefined,
-        date: item.isPaid && settlementDate ? settlementDate : (item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0]),
-        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        date: item.isPaid && settlementDate ? settlementDate : item.dueDate.split('T')[0],
+        dueDate: item.dueDate.split('T')[0],
         settlementDate: item.isPaid ? settlementDate : undefined,
         type: 'receita',
         status,
@@ -798,9 +816,16 @@ export const getClientData = async (companyId: string) => {
       });
     });
 
-    rawDebits.forEach((item: any) => {
+    // Validar contratos de dados com Zod antes de processar
+    const validDebits = validateAndFilterItems<typeof NiboDebitScheduleSchema>(
+      rawDebits,
+      NiboDebitScheduleSchema,
+      'schedules/debit'
+    );
+
+    validDebits.forEach((item: NiboDebitSchedule) => {
       const catObj = item.categories && item.categories.length > 0 ? item.categories[0] : null;
-      const catId = catObj?.categoryId || item.category?.id;
+      const catId = catObj?.categoryId || (item as any).category?.id;
       const cachedCat = catId && categoryTree[catId] ? categoryTree[catId] : null;
 
       let status: TransactionStatus = 'pendente';
@@ -810,25 +835,25 @@ export const getClientData = async (companyId: string) => {
         status = 'atrasado';
       }
 
-      const category = catObj?.categoryName || item.category?.name || cachedCat?.name || 'Despesas Gerais';
+      const category = catObj?.categoryName || (item as any).category?.name || cachedCat?.name || 'Despesas Gerais';
       const parentCategory = catObj?.parent || cachedCat?.parentName || 'Despesas operacionais';
       const description = item.description || 'Pagamento';
 
-      // Liquidação real (juros, multas e descontos)
-      const payments = Array.isArray(item.payments) ? item.payments : [];
+      // Liquidação real (juros, multas e descontos) — tipados pelo Zod
+      const payments = item.payments || [];
       let interestValue = 0;
       let fineValue = 0;
       let discountValue = 0;
-      let paidValue = item.value || 0;
-      let settlementDate = item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+      let paidValue = item.value;
+      let settlementDate = item.dueDate.split('T')[0];
 
       if (payments.length > 0) {
-        interestValue = payments.reduce((acc: number, p: any) => acc + (p.interestValue || 0), 0);
-        fineValue = payments.reduce((acc: number, p: any) => acc + (p.fineValue || 0), 0);
-        discountValue = payments.reduce((acc: number, p: any) => acc + (p.discountValue || 0), 0);
-        paidValue = payments.reduce((acc: number, p: any) => acc + (p.netValue || p.value || 0), 0);
+        interestValue = payments.reduce((acc, p) => acc + (p.interestValue || 0), 0);
+        fineValue = payments.reduce((acc, p) => acc + (p.fineValue || 0), 0);
+        discountValue = payments.reduce((acc, p) => acc + (p.discountValue || 0), 0);
+        paidValue = payments.reduce((acc, p) => acc + (p.netValue || p.value || 0), 0);
         if (payments[0].paymentDate || payments[0].date) {
-          settlementDate = (payments[0].paymentDate || payments[0].date).split('T')[0];
+          settlementDate = (payments[0].paymentDate || payments[0].date)!.split('T')[0];
         }
       } else if (item.paidDate) {
         settlementDate = item.paidDate.split('T')[0];
@@ -837,15 +862,15 @@ export const getClientData = async (companyId: string) => {
       const tag = classifyTransactionTag(category, parentCategory, description, 'despesa');
 
       mappedTransactions.push({
-        id: item.scheduleId || item.id,
+        id: item.scheduleId || item.id || '',
         description,
-        value: item.value || 0,
+        value: item.value,
         paidValue: item.isPaid ? paidValue : undefined,
         interestValue: interestValue > 0 ? interestValue : undefined,
         fineValue: fineValue > 0 ? fineValue : undefined,
         discountValue: discountValue > 0 ? discountValue : undefined,
-        date: item.isPaid && settlementDate ? settlementDate : (item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0]),
-        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        date: item.isPaid && settlementDate ? settlementDate : item.dueDate.split('T')[0],
+        dueDate: item.dueDate.split('T')[0],
         settlementDate: item.isPaid ? settlementDate : undefined,
         type: 'despesa',
         status,
