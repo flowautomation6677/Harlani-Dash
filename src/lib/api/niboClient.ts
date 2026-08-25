@@ -925,23 +925,21 @@ export const getFinancialHealthAnalysis = async (companyId: string, period: stri
     const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
     if (t.type === 'receita') {
       totalRevenue += t.value;
+    } else if (tag === 'JUROS_FINANCEIRO') {
+      jurosFinanceiro += t.value;
+    } else if (tag === 'IMPOSTOS') {
+      impostos += t.value;
+      variableExpenses += t.value; // Impostos variam com o faturamento
+    } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+      depreciacaoAmortizacao += t.value;
     } else {
-      if (tag === 'JUROS_FINANCEIRO') {
-        jurosFinanceiro += t.value;
-      } else if (tag === 'IMPOSTOS') {
-        impostos += t.value;
-        variableExpenses += t.value; // Impostos variam com o faturamento
-      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
-        depreciacaoAmortizacao += t.value;
+      // Despesas e Custos Operacionais
+      operationalExpenses += t.value;
+      const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
+      if (nameUpper.includes('FOLHA') || nameUpper.includes('ALUGUEL') || nameUpper.includes('INFRA') || nameUpper.includes('SOFTWARE') || nameUpper.includes('HONORAR')) {
+        fixedExpenses += t.value;
       } else {
-        // Despesas e Custos Operacionais
-        operationalExpenses += t.value;
-        const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
-        if (nameUpper.includes('FOLHA') || nameUpper.includes('ALUGUEL') || nameUpper.includes('INFRA') || nameUpper.includes('SOFTWARE') || nameUpper.includes('HONORAR')) {
-          fixedExpenses += t.value;
-        } else {
-          variableExpenses += t.value;
-        }
+        variableExpenses += t.value;
       }
     }
   });

@@ -13,11 +13,11 @@ import {
 } from 'recharts';
 
 interface CashFlowBarChartProps {
-  data: any[];
-  height?: number;
+  readonly data: readonly any[];
+  readonly height?: number;
 }
 
-export function CashFlowBarChart({ data, height = 320 }: CashFlowBarChartProps) {
+export function CashFlowBarChart({ data, height = 320 }: Readonly<CashFlowBarChartProps>) {
   return (
     <div style={{ height: `${height}px`, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">

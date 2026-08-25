@@ -133,15 +133,15 @@ export function exportFinancialsToCSV({
 }) {
   const csvHeader = "ID,Descricao,Categoria,ClienteFornecedor,Data,Tipo,Status,Valor\n";
   const csvRows = transactions.map(t => 
-    `"${t.id}","${t.description.replace(/"/g, '""')}","${t.category}","${t.clientSupplier.replace(/"/g, '""')}","${t.date}","${t.type}","${t.status}",${t.value}`
+    `"${t.id}","${t.description.replaceAll('"', '""')}","${t.category}","${t.clientSupplier.replaceAll('"', '""')}","${t.date}","${t.type}","${t.status}",${t.value}`
   ).join("\n");
 
   const blob = new Blob(["\uFEFF" + csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `Nibo_Export_${company.name.replace(/\s+/g, '_')}_${period}.csv`);
+  link.setAttribute('download', `Nibo_Export_${company.name.replaceAll(/\s+/g, '_')}_${period}.csv`);
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
 }

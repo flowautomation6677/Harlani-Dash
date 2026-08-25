@@ -14,11 +14,11 @@ import {
 import { BreakEvenAnalysis } from '@/lib/api/niboClient';
 
 interface BreakEvenLineChartProps {
-  data: BreakEvenAnalysis['monthlyBreakdown'];
-  height?: number;
+  readonly data: BreakEvenAnalysis['monthlyBreakdown'];
+  readonly height?: number;
 }
 
-export function BreakEvenLineChart({ data, height = 300 }: BreakEvenLineChartProps) {
+export function BreakEvenLineChart({ data, height = 300 }: Readonly<BreakEvenLineChartProps>) {
   return (
     <div style={{ height: `${height}px`, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">

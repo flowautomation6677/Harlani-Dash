@@ -15,14 +15,11 @@ import {
   FileText, 
   Printer, 
   FileSpreadsheet, 
-  TrendingUp, 
   Target, 
   ShieldCheck, 
   AlertTriangle, 
   CheckCircle2, 
-  Mail, 
-  Building2, 
-  Calendar
+  Mail 
 } from 'lucide-react';
 
 export default function RelatoriosMensaisPage() {

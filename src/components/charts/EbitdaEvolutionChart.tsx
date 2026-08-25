@@ -14,11 +14,11 @@ import {
 import { EbitdaMonthlyItem } from '@/lib/api/niboClient';
 
 interface EbitdaEvolutionChartProps {
-  data: EbitdaMonthlyItem[];
-  height?: number;
+  readonly data: readonly EbitdaMonthlyItem[];
+  readonly height?: number;
 }
 
-export function EbitdaEvolutionChart({ data, height = 300 }: EbitdaEvolutionChartProps) {
+export function EbitdaEvolutionChart({ data, height = 300 }: Readonly<EbitdaEvolutionChartProps>) {
   return (
     <div style={{ height: `${height}px`, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">

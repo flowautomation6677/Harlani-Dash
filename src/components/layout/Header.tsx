@@ -41,7 +41,7 @@ export function Header() {
           </div>
         </div>
 
-        <button className="btn text-muted hover:text-primary transition-colors relative" title="Notificações">
+        <button type="button" className="btn text-muted hover:text-primary transition-colors relative" title="Notificações">
           <Bell size={20} />
           <span style={{
             position: 'absolute',
