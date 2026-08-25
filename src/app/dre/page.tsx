@@ -199,37 +199,37 @@ export default function DREPage() {
         </div>
 
         {/* Resumo da Análise de DRE */}
-        <div className="card flex flex-col justify-between bg-gradient-to-br from-white to-purple-50">
+        <div className="report-card report-card-purple">
           <div>
-            <div className="flex items-center gap-2 mb-3 text-purple font-bold text-sm">
-              <Info size={18} />
+            <div className="report-title">
+              <Info size={18} className="report-icon" />
               <span>Diagnóstico de Eficiência — Harlani Gestão</span>
             </div>
 
-            <p className="text-xs text-secondary leading-relaxed mb-4">
-              A empresa <strong className="text-primary">{selectedCompany.name}</strong> opera com uma margem EBITDA de <strong>{health.margemEbitda.toFixed(1)}%</strong> e margem líquida de <strong>{dre.margemLiquida.toFixed(1)}%</strong>.
+            <p className="report-body" style={{ marginBottom: '1.25rem' }}>
+              A empresa <strong className="neutral">{selectedCompany.name}</strong> opera com uma margem EBITDA de <strong className="report-value">{health.margemEbitda.toFixed(1)}%</strong> e margem líquida de <strong className="report-value">{dre.margemLiquida.toFixed(1)}%</strong>.
             </p>
 
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
+              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
                 <span className="text-muted">Despesas Fixas Mensais:</span>
                 <span className="font-semibold text-secondary">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
+              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
                 <span className="text-muted">Margem de Segurança (Break-Even):</span>
                 <span className="font-semibold text-success">+{health.breakEven.safetyMarginPercent.toFixed(1)}% acima da meta</span>
               </div>
 
-              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
+              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
                 <span className="text-muted">Juros e Tarifas Financeiras:</span>
                 <span className="font-semibold text-danger">R$ {health.jurosFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
 
-          <div className="text-xs text-muted mt-4 pt-3 border-t border-gray-100">
-            * Dados calculados a partir dos planos de contas do Nibo via <strong>Harlani Gestão</strong>.
+          <div className="report-footer">
+            * Dados calculados a partir dos planos de contas do Nibo via Harlani Gestão.
           </div>
         </div>
       </div>

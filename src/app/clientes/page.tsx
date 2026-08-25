@@ -36,10 +36,6 @@ export default function ClientesFornecedoresPage() {
     loadData();
   }, [selectedCompany.id]);
 
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
-
   const filteredList = useMemo(() => {
     return stakeholders.filter(stk => {
       const matchType = filterType === 'all' || stk.type === filterType;
@@ -73,6 +69,10 @@ export default function ClientesFornecedoresPage() {
       .sort((a, b) => (b.totalValue || 0) - (a.totalValue || 0))
       .slice(0, 5);
   }, [stakeholders]);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">

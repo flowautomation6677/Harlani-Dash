@@ -613,41 +613,39 @@ export default function DashboardPage() {
 
       {/* Widget de Contas Bancárias & Caixas Nibo */}
       {bankAccounts.length > 0 && (
-        <div className="card bg-gradient-to-r from-slate-900 to-slate-800 text-white border-slate-700">
-          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">
+        <div className="bank-widget" style={{ marginBottom: '1.5rem' }}>
+          <div className="bank-widget-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="bank-icon-container">
                 <Landmark size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-base text-white">Contas Bancárias & Caixas Sincronizados</h3>
-                <p className="text-xs text-slate-400">Saldos de abertura e conciliação bancária integrados via Nibo Open Finance</p>
+                <h3 className="bank-widget-title">Contas Bancárias & Caixas Sincronizados</h3>
+                <p className="bank-widget-subtitle">Saldos de abertura e conciliação bancária integrados via Nibo Open Finance</p>
               </div>
             </div>
-            <span className="badge badge-success text-xs">
+            <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>
               {bankAccounts.length} Contas Conectadas
             </span>
           </div>
 
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="bank-grid">
             {bankAccounts.map(acc => (
-              <div key={acc.id} className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+              <div key={acc.id} className="bank-card">
                 <div>
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-bold text-slate-200">{acc.name}</span>
-                    <span className="text-[10px] font-semibold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                      {acc.bankName}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{acc.name}</span>
+                    <span className="bank-tag">{acc.bankName}</span>
                   </div>
                   {acc.bankAccount && (
-                    <div className="text-[11px] font-mono text-slate-400">
+                    <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#94a3b8' }}>
                       Ag: {acc.bankAgency || '0001'} • CC: {acc.bankAccount}
                     </div>
                   )}
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-700/50 flex justify-between items-baseline">
-                  <span className="text-[11px] text-slate-400">Saldo:</span>
-                  <span className="font-bold text-sm text-emerald-400">
+                <div className="bank-card-footer">
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Saldo:</span>
+                  <span className="bank-balance">
                     R$ {acc.openBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
