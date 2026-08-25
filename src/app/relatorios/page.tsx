@@ -19,7 +19,8 @@ import {
   ShieldCheck, 
   AlertTriangle, 
   CheckCircle2, 
-  Mail 
+  Mail,
+  Calendar
 } from 'lucide-react';
 
 export default function RelatoriosMensaisPage() {
@@ -27,6 +28,8 @@ export default function RelatoriosMensaisPage() {
   const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('2026-m');
+  const [customStartDate, setCustomStartDate] = useState('2026-08-01');
+  const [customEndDate, setCustomEndDate] = useState('2026-08-31');
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailSentToast, setEmailSentToast] = useState(false);
@@ -34,12 +37,17 @@ export default function RelatoriosMensaisPage() {
   useEffect(() => {
     async function loadReport() {
       setLoading(true);
-      const data = await getFinancialHealthAnalysis(selectedCompany.id, selectedMonth);
+      const data = await getFinancialHealthAnalysis(
+        selectedCompany.id, 
+        selectedMonth,
+        customStartDate,
+        customEndDate
+      );
       setHealth(data);
       setLoading(false);
     }
     loadReport();
-  }, [selectedCompany.id, selectedMonth]);
+  }, [selectedCompany.id, selectedMonth, customStartDate, customEndDate]);
 
   if (loading || !health) {
     return <DashboardSkeleton />;
@@ -53,6 +61,8 @@ export default function RelatoriosMensaisPage() {
         periodLabel = 'Mês Atual';
       } else if (selectedMonth === '2026-q') {
         periodLabel = 'Último Trimestre';
+      } else if (selectedMonth === 'custom') {
+        periodLabel = `${customStartDate} até ${customEndDate}`;
       }
 
       exportFinancialsToExcel({
@@ -139,7 +149,7 @@ export default function RelatoriosMensaisPage() {
         </div>
       )}
 
-      {/* Top Header */}
+      {/* Top Header com Filtros e Ações */}
       <div className="card flex flex-wrap items-center justify-between gap-4" style={{ padding: '1.5rem' }}>
         <div className="flex items-center gap-4">
           <div className="flex items-center justify-center font-bold text-xl text-purple" style={{ width: '3rem', height: '3rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--purple-light)' }}>
@@ -180,7 +190,38 @@ export default function RelatoriosMensaisPage() {
             >
               Ano 2026 (YTD)
             </button>
+            <button 
+              type="button"
+              className={`tab-btn ${selectedMonth === 'custom' ? 'active' : ''}`}
+              onClick={() => setSelectedMonth('custom')}
+            >
+              Personalizado
+            </button>
           </div>
+
+          {selectedMonth === 'custom' && (
+            <div className="flex items-center gap-2" style={{ padding: '0.35rem 0.75rem', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <div className="flex items-center gap-1.5">
+                <Calendar size={14} className="text-muted" />
+                <span className="text-xs text-muted font-medium">De:</span>
+                <input 
+                  type="date" 
+                  value={customStartDate} 
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fff', outline: 'none' }}
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted font-medium">Até:</span>
+                <input 
+                  type="date" 
+                  value={customEndDate} 
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fff', outline: 'none' }}
+                />
+              </div>
+            </div>
+          )}
 
           <button type="button" onClick={() => window.print()} className="btn btn-outline gap-2 text-xs">
             <Printer size={16} />
@@ -255,10 +296,16 @@ export default function RelatoriosMensaisPage() {
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h3 className="font-bold text-base">Evolução Mensal do EBITDA (R$)</h3>
-              <p className="text-xs text-muted">Geração operacional vs. Receita e Margem %</p>
+              <h3 className="font-bold text-base">Evolução do EBITDA (R$)</h3>
+              <p className="text-xs text-muted">
+                {selectedMonth === '2026-m' 
+                  ? 'Visão por semanas do mês selecionado' 
+                  : selectedMonth === 'custom'
+                    ? `Período personalizado (${customStartDate} a ${customEndDate})`
+                    : 'Geração operacional vs. Receita e Margem %'}
+              </p>
             </div>
-            <span className="badge badge-purple">Recharts Modular</span>
+            <span className="badge badge-purple">Dinâmico por Filtro</span>
           </div>
           <EbitdaEvolutionChart data={health.ebitdaEvolution} height={260} />
         </div>
@@ -268,7 +315,11 @@ export default function RelatoriosMensaisPage() {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h3 className="font-bold text-base">Faturamento vs. Ponto de Equilíbrio</h3>
-              <p className="text-xs text-muted">Zona de cobertura de despesas e margem de lucro</p>
+              <p className="text-xs text-muted">
+                {selectedMonth === '2026-m' 
+                  ? 'Metas e custos distribuídos por semana' 
+                  : 'Zona de cobertura de despesas e margem de segurança'}
+              </p>
             </div>
             <span className="badge badge-success">Meta Break-Even</span>
           </div>
