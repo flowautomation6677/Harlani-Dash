@@ -23,7 +23,7 @@ export function exportFinancialsToExcel({
   // ABA 1: RESUMO EXECUTIVO (KPIs & SAÚDE FINANCEIRA)
   // -------------------------------------------------------------
   const summaryData = [
-    ["RELATÓRIO FINANCEIRO EXECUTIVO — GAGEIA GESTÃO", ""],
+    ["RELATÓRIO FINANCEIRO EXECUTIVO — HARLANI GESTÃO", ""],
     ["Empresa:", company.name],
     ["CNPJ:", company.cnpj],
     ["Segmento:", company.segment],

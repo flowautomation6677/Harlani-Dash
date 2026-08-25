@@ -54,7 +54,7 @@ export default function DREPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `DRE Analítico Gageia Gestão (${period === '2026-m' ? 'Mês Atual' : period === '2026-q' ? 'Último Trimestre' : 'Ano YTD'})`
+        period: `DRE Analítico Harlani Gestão (${period === '2026-m' ? 'Mês Atual' : period === '2026-q' ? 'Último Trimestre' : 'Ano YTD'})`
       });
     } catch (e) {
       alert("Erro ao exportar o DRE.");
@@ -193,7 +193,7 @@ export default function DREPage() {
               <h3 className="font-bold text-base">Evolução Mensal do EBITDA</h3>
               <p className="text-xs text-muted">Geração de caixa operacional ao longo do ano</p>
             </div>
-            <span className="badge badge-purple">Gageia Gestão</span>
+            <span className="badge badge-purple">Harlani Gestão</span>
           </div>
           <EbitdaEvolutionChart data={health.ebitdaEvolution} height={240} />
         </div>
@@ -203,7 +203,7 @@ export default function DREPage() {
           <div>
             <div className="flex items-center gap-2 mb-3 text-purple font-bold text-sm">
               <Info size={18} />
-              <span>Diagnóstico de Eficiência — Gageia Gestão</span>
+              <span>Diagnóstico de Eficiência — Harlani Gestão</span>
             </div>
 
             <p className="text-xs text-secondary leading-relaxed mb-4">
@@ -229,7 +229,7 @@ export default function DREPage() {
           </div>
 
           <div className="text-xs text-muted mt-4 pt-3 border-t border-gray-100">
-            * Dados calculados a partir dos planos de contas do Nibo via <strong>Gageia Gestão</strong>.
+            * Dados calculados a partir dos planos de contas do Nibo via <strong>Harlani Gestão</strong>.
           </div>
         </div>
       </div>

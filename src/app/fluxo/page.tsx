@@ -91,7 +91,7 @@ export default function FluxoDeCaixaPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `Fluxo de Caixa Gageia Gestão (${period})`
+        period: `Fluxo de Caixa Harlani Gestão (${period})`
       });
     } catch (error) {
       console.error('Erro ao exportar:', error);

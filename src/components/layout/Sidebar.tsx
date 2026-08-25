@@ -10,7 +10,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h2>Gageia<span className="text-primary">Gestão</span></h2>
+        <h2>Harlani<span className="text-primary">Gestão</span></h2>
       </div>
       
       <nav className="sidebar-nav">

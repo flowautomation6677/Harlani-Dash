@@ -60,7 +60,7 @@ export default function RelatoriosMensaisPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `Relatório Executivo Gageia Gestão (${periodLabel})`
+        period: `Relatório Executivo Harlani Gestão (${periodLabel})`
       });
     } catch (error) {
       console.error("Erro ao exportar relatório:", error);
@@ -101,7 +101,7 @@ export default function RelatoriosMensaisPage() {
             <div className="flex justify-between items-center" style={{ marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
               <div className="flex items-center gap-2 text-primary font-bold">
                 <Mail size={20} />
-                <h3>Enviar Relatório Executivo Gageia Gestão</h3>
+                <h3>Enviar Relatório Executivo Harlani Gestão</h3>
               </div>
             </div>
 
@@ -122,7 +122,7 @@ export default function RelatoriosMensaisPage() {
               </div>
 
               <div className="text-xs text-secondary" style={{ padding: '0.75rem', backgroundColor: 'var(--primary-light)', borderRadius: 'var(--radius-md)', lineHeight: 1.5 }}>
-                O cliente receberá um e-mail personalizado da <strong>Gageia Gestão</strong> contendo o parecer dos especialistas, indicadores de EBITDA e o PDF corporativo anexado.
+                O cliente receberá um e-mail personalizado da <strong>Harlani Gestão</strong> contendo o parecer dos especialistas, indicadores de EBITDA e o PDF corporativo anexado.
               </div>
 
               <div className="flex justify-end gap-2 mt-2">
@@ -148,7 +148,7 @@ export default function RelatoriosMensaisPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold">Relatório Executivo Mensal — {selectedCompany.name}</h1>
-              <span className="badge badge-purple">Gageia Gestão BPO</span>
+              <span className="badge badge-purple">Harlani Gestão BPO</span>
             </div>
             <p className="text-xs text-muted mt-1">
               Demonstrativo consolidado de EBITDA, Ponto de Equilíbrio e Parecer de Consultoria
@@ -276,15 +276,15 @@ export default function RelatoriosMensaisPage() {
         </div>
       </div>
 
-      {/* Parecer do Especialista Gageia Gestão */}
+      {/* Parecer do Especialista Harlani Gestão */}
       <div className="card" style={{ padding: '2rem' }}>
         <div className="flex flex-wrap items-center justify-between gap-4" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center font-bold text-lg text-purple" style={{ width: '3rem', height: '3rem', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--purple-light)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
-              GG
+              HG
             </div>
             <div>
-              <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Parecer Técnico da Consultoria — Gageia Gestão</h3>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Parecer Técnico da Consultoria — Harlani Gestão</h3>
               <p className="text-xs text-muted" style={{ marginTop: '0.125rem' }}>Diagnóstico contábil e estratégico consolidado via Nibo Open API</p>
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function RelatoriosMensaisPage() {
         <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-2">
             <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: 'var(--secondary)' }} />
-            <span>Relatório executivo gerado via <strong style={{ color: 'var(--text-primary)' }}>Gageia Gestão BPO Financeiro</strong></span>
+            <span>Relatório executivo gerado via <strong style={{ color: 'var(--text-primary)' }}>Harlani Gestão BPO Financeiro</strong></span>
           </div>
           <div className="badge badge-purple" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
             Assinatura Digital com Validade Fiscal

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gageia Gestão — Dashboard Financeiro Inteligente",
-  description: "Plataforma de inteligência financeira, DRE, EBITDA, Break-Even e BPO automatizado com integração Nibo API.",
+  title: "Harlani Gestão — Dashboard Financeiro Inteligente",
+  description: "BPO Financeiro, Gestão de Fluxo de Caixa e DRE com integração Nibo API.",
 };
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";

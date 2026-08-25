@@ -55,9 +55,9 @@ export function Header() {
         </button>
 
         <div className="user-profile cursor-pointer">
-          <div className="avatar">GG</div>
+          <div className="avatar">HG</div>
           <div>
-            <div className="text-sm font-semibold">Gageia Gestão</div>
+            <div className="text-sm font-semibold">Harlani Gestão</div>
             <div className="text-xs text-muted">Consultoria & BPO Financeiro</div>
           </div>
         </div>
