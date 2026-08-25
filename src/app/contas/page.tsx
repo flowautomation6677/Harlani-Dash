@@ -18,6 +18,8 @@ import {
   Check
 } from 'lucide-react';
 
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+
 export default function ContasPage() {
   const { selectedCompany } = useCompany();
   const [data, setData] = useState<AccountsPayableReceivableSummary | null>(null);
@@ -39,12 +41,7 @@ export default function ContasPage() {
   }, [selectedCompany.id]);
 
   if (loading || !data) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted">
-        <Activity className="animate-spin text-primary" size={32} />
-        <div className="text-sm font-medium">Buscando Contas a Pagar e Receber para {selectedCompany.name}...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Filtrar lista

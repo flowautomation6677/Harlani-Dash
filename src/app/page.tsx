@@ -12,6 +12,7 @@ import {
   CostCenter 
 } from '@/lib/api/niboClient';
 import { exportFinancialsToExcel, exportFinancialsToCSV } from '@/lib/utils/exportToExcel';
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
   ArrowDownRight, 
@@ -139,12 +140,7 @@ export default function DashboardPage() {
   }, [data, period, startDate, endDate]);
 
   if (loading || !data || !computedMetrics) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted">
-        <Activity className="animate-spin text-primary" size={32} />
-        <div className="text-sm font-medium">Carregando dados financeiros de {selectedCompany.name}...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Ação Exportar Excel (.xlsx)

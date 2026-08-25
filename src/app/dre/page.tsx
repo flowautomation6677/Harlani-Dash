@@ -2,33 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { getDREData, DREData, DRELineItem } from '@/lib/api/niboClient';
 import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell 
-} from 'recharts';
+  getDREData, 
+  getFinancialHealthAnalysis, 
+  DREData, 
+  FinancialHealthAnalysis 
+} from '@/lib/api/niboClient';
+import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { 
-  Building2, 
-  Download, 
   Printer, 
   TrendingUp, 
-  DollarSign, 
   PieChart as PieIcon, 
   FileSpreadsheet,
-  Activity,
-  ChevronRight,
-  Info
+  Info,
+  Target,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function DREPage() {
   const { selectedCompany } = useCompany();
   const [dre, setDre] = useState<DREData | null>(null);
+  const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('2026-ytd');
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,8 +31,12 @@ export default function DREPage() {
   useEffect(() => {
     async function loadDRE() {
       setLoading(true);
-      const data = await getDREData(selectedCompany.id, period);
-      setDre(data);
+      const [dreData, healthData] = await Promise.all([
+        getDREData(selectedCompany.id, period),
+        getFinancialHealthAnalysis(selectedCompany.id, period)
+      ]);
+      setDre(dreData);
+      setHealth(healthData);
       setLoading(false);
     }
     loadDRE();
@@ -55,20 +54,15 @@ export default function DREPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `DRE Analítico (${period === '2026-m' ? 'Mês Atual' : period === '2026-q' ? 'Último Trimestre' : 'Ano YTD'})`
+        period: `DRE Analítico Gageia Gestão (${period === '2026-m' ? 'Mês Atual' : period === '2026-q' ? 'Último Trimestre' : 'Ano YTD'})`
       });
     } catch (e) {
       alert("Erro ao exportar o DRE.");
     }
   };
 
-  if (loading || !dre) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted">
-        <Activity className="animate-spin text-primary" size={32} />
-        <div className="text-sm font-medium">Gerando Demonstrativo do Resultado (DRE) para {selectedCompany.name}...</div>
-      </div>
-    );
+  if (loading || !dre || !health) {
+    return <DashboardSkeleton />;
   }
 
   const filteredItems = dre.items.filter(item => 
@@ -140,9 +134,9 @@ export default function DREPage() {
       </div>
 
       {/* Cards de Resumo Gerencial */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">RECEITA OPERACIONAL LÍQUIDA</div>
+          <div className="text-xs font-semibold text-muted mb-2">RECEITA LÍQUIDA</div>
           <div className="text-2xl font-bold text-primary mb-1">
             R$ {dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
@@ -155,18 +149,28 @@ export default function DREPage() {
             R$ {dre.lucroBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-muted">
-            Margem Bruta: <strong>{((dre.lucroBruto / dre.receitaBruta) * 100).toFixed(1)}%</strong>
+            Margem: <strong>{((dre.lucroBruto / dre.receitaBruta) * 100).toFixed(1)}%</strong>
           </div>
         </div>
 
         <div className="card">
           <div className="text-xs font-semibold text-muted mb-2">EBITDA (LAJIDA)</div>
           <div className="text-2xl font-bold text-purple mb-1">
-            R$ {dre.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="flex items-center gap-1 text-xs text-purple font-semibold">
             <TrendingUp size={14} />
-            <span>Margem EBITDA: {dre.margemEbitda}%</span>
+            <span>Margem EBITDA: {health.margemEbitda.toFixed(1)}%</span>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="text-xs font-semibold text-muted mb-2">PONTO DE EQUILÍBRIO</div>
+          <div className="text-2xl font-bold text-amber-600 mb-1" style={{ color: '#d97706' }}>
+            R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-muted">
+            Folga: <strong>{health.breakEven.safetyMarginPercent.toFixed(1)}%</strong>
           </div>
         </div>
 
@@ -176,38 +180,22 @@ export default function DREPage() {
             R$ {dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-muted">
-            Margem Líquida: <strong style={{ color: '#059669' }}>{dre.margemLiquida}%</strong>
+            Margem: <strong style={{ color: '#059669' }}>{dre.margemLiquida.toFixed(1)}%</strong>
           </div>
         </div>
       </div>
 
-      {/* Gráfico Sintético da Estrutura DRE + Dicas */}
-      <div className="grid gap-6" style={{ gridTemplateColumns: '2fr 1fr' }}>
+      {/* Gráficos: Evolução do EBITDA e Estrutura de DRE */}
+      <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h3 className="font-bold text-base">Composição dos Resultados (R$)</h3>
-              <p className="text-xs text-muted">Distribuição da Receita Bruta até o Lucro Líquido final</p>
+              <h3 className="font-bold text-base">Evolução Mensal do EBITDA</h3>
+              <p className="text-xs text-muted">Geração de caixa operacional ao longo do ano</p>
             </div>
+            <span className="badge badge-purple">Gageia Gestão</span>
           </div>
-          <div style={{ height: '220px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(v) => `R$${v/1000}k`} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  formatter={(val: number) => [`R$ ${val.toLocaleString('pt-BR')}`, 'Valor']}
-                />
-                <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <EbitdaEvolutionChart data={health.ebitdaEvolution} height={240} />
         </div>
 
         {/* Resumo da Análise de DRE */}
@@ -215,28 +203,33 @@ export default function DREPage() {
           <div>
             <div className="flex items-center gap-2 mb-3 text-purple font-bold text-sm">
               <Info size={18} />
-              <span>Análise do Especialista</span>
+              <span>Diagnóstico de Eficiência — Gageia Gestão</span>
             </div>
 
             <p className="text-xs text-secondary leading-relaxed mb-4">
-              A empresa <strong className="text-primary">{selectedCompany.name}</strong> apresenta uma margem líquida excelente de <strong>{dre.margemLiquida}%</strong>.
+              A empresa <strong className="text-primary">{selectedCompany.name}</strong> opera com uma margem EBITDA de <strong>{health.margemEbitda.toFixed(1)}%</strong> e margem líquida de <strong>{dre.margemLiquida.toFixed(1)}%</strong>.
             </p>
 
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
-                <span className="text-muted">Impostos / Faturamento:</span>
-                <span className="font-semibold text-warning">{Math.abs(dre.impostosDeducoes / dre.receitaBruta * 100).toFixed(1)}%</span>
+                <span className="text-muted">Despesas Fixas Mensais:</span>
+                <span className="font-semibold text-secondary">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
-                <span className="text-muted">Peso dos Custos (CPV):</span>
-                <span className="font-semibold text-danger">{Math.abs(dre.custosVendas / dre.receitaBruta * 100).toFixed(1)}%</span>
+                <span className="text-muted">Margem de Segurança (Break-Even):</span>
+                <span className="font-semibold text-success">+{health.breakEven.safetyMarginPercent.toFixed(1)}% acima da meta</span>
+              </div>
+
+              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-gray-100">
+                <span className="text-muted">Juros e Tarifas Financeiras:</span>
+                <span className="font-semibold text-danger">R$ {health.jurosFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
 
           <div className="text-xs text-muted mt-4 pt-3 border-t border-gray-100">
-            * Dados calculados a partir dos planos de contas do Nibo.
+            * Dados calculados a partir dos planos de contas do Nibo via <strong>Gageia Gestão</strong>.
           </div>
         </div>
       </div>

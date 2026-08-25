@@ -5,6 +5,12 @@ export type TransactionStatus = 'pago' | 'pendente' | 'atrasado';
 export type DREItemType = 'receita' | 'deducao' | 'subtotal' | 'custo' | 'despesa' | 'lucro';
 export type CashFlowStatus = 'realizado' | 'projetado';
 export type CashFlowCategoryType = 'entrada' | 'saida';
+export type AccountingTag = 
+  | 'OPERACIONAL' 
+  | 'JUROS_FINANCEIRO' 
+  | 'IMPOSTOS' 
+  | 'DEPRECIACAO_AMORTIZACAO' 
+  | 'INVESTIMENTO_NAO_OPERACIONAL';
 
 export interface Transaction {
   id: string;
@@ -18,6 +24,63 @@ export interface Transaction {
   parentCategory?: string;
   clientSupplier: string;
   documentNumber: string;
+  tag?: AccountingTag;
+}
+
+export function classifyTransactionTag(category: string, parentCategory?: string, description?: string): AccountingTag {
+  const text = `${category} ${parentCategory || ''} ${description || ''}`.toUpperCase();
+
+  if (text.includes('JURO') || text.includes('MULTA') || text.includes('TARIFA') || text.includes('IOF') || text.includes('BANCAR') || text.includes('RENDIMENTO')) {
+    return 'JUROS_FINANCEIRO';
+  }
+  if (text.includes('IMPOSTO') || text.includes('SIMPLES') || text.includes('ISS') || text.includes('ICMS') || text.includes('PIS') || text.includes('COFINS') || text.includes('IRPJ') || text.includes('CSLL') || text.includes('TRIBUT')) {
+    return 'IMPOSTOS';
+  }
+  if (text.includes('DEPRECIA') || text.includes('AMORTIZA')) {
+    return 'DEPRECIACAO_AMORTIZACAO';
+  }
+  if (text.includes('INVESTIMENTO') || text.includes('CAPITAL') || text.includes('EMPRESTIMO') || text.includes('APORTE') || text.includes('DIVIDENDO')) {
+    return 'INVESTIMENTO_NAO_OPERACIONAL';
+  }
+  return 'OPERACIONAL';
+}
+
+export interface EbitdaMonthlyItem {
+  month: string;
+  receitaLiquida: number;
+  custosOperacionais: number;
+  ebitda: number;
+  margemEbitda: number;
+  lucroLiquido: number;
+}
+
+export interface BreakEvenAnalysis {
+  fixedExpenses: number;
+  variableExpenses: number;
+  totalRevenue: number;
+  contributionMarginValue: number;
+  contributionMarginPercent: number;
+  breakEvenPoint: number;
+  safetyMarginValue: number;
+  safetyMarginPercent: number;
+  monthlyBreakdown: {
+    month: string;
+    faturamento: number;
+    custosFixos: number;
+    custosTotais: number;
+    pontoEquilibrio: number;
+  }[];
+}
+
+export interface FinancialHealthAnalysis {
+  ebitda: number;
+  margemEbitda: number;
+  jurosFinanceiro: number;
+  impostos: number;
+  depreciacaoAmortizacao: number;
+  lucroLiquido: number;
+  breakEven: BreakEvenAnalysis;
+  ebitdaEvolution: EbitdaMonthlyItem[];
 }
 
 export interface ClientMetrics {
@@ -379,18 +442,23 @@ export const getClientData = async (companyId: string) => {
         status = 'atrasado';
       }
 
+      const category = cat?.categoryName || item.category?.name || 'Vendas/Serviços';
+      const parentCategory = cat?.parent || 'Receitas operacionais';
+      const description = item.description || 'Recebimento';
+
       mappedTransactions.push({
         id: item.scheduleId,
-        description: item.description || 'Recebimento',
+        description,
         value: item.value || 0,
         date: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         type: 'receita',
         status,
-        category: cat?.categoryName || item.category?.name || 'Vendas/Serviços',
-        parentCategory: cat?.parent || 'Receitas operacionais',
+        category,
+        parentCategory,
         clientSupplier: item.stakeholder?.name || 'Cliente Diverso',
-        documentNumber: item.reference || ''
+        documentNumber: item.reference || '',
+        tag: classifyTransactionTag(category, parentCategory, description)
       });
     });
 
@@ -403,18 +471,23 @@ export const getClientData = async (companyId: string) => {
         status = 'atrasado';
       }
 
+      const category = cat?.categoryName || item.category?.name || 'Despesas Gerais';
+      const parentCategory = cat?.parent || 'Despesas operacionais';
+      const description = item.description || 'Pagamento';
+
       mappedTransactions.push({
         id: item.scheduleId,
-        description: item.description || 'Pagamento',
+        description,
         value: item.value || 0,
         date: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         type: 'despesa',
         status,
-        category: cat?.categoryName || item.category?.name || 'Despesas Gerais',
-        parentCategory: cat?.parent || 'Despesas operacionais',
+        category,
+        parentCategory,
         clientSupplier: item.stakeholder?.name || 'Fornecedor',
-        documentNumber: item.reference || ''
+        documentNumber: item.reference || '',
+        tag: classifyTransactionTag(category, parentCategory, description)
       });
     });
 
@@ -817,4 +890,145 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
     console.error('Erro ao buscar clientes e fornecedores Nibo:', error);
     return [];
   }
+};
+
+export const getFinancialHealthAnalysis = async (companyId: string, period: string = '2026-ytd'): Promise<FinancialHealthAnalysis> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  // Filtrar transações pagas
+  const paidTxs = txs.filter(t => {
+    if (t.status !== 'pago') return false;
+    const d = new Date(t.date);
+    if (period === '2026-m') {
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    } else if (period === '2026-q') {
+      const diffMonths = (currentYear - d.getFullYear()) * 12 + (currentMonth - d.getMonth());
+      return diffMonths >= 0 && diffMonths < 3;
+    }
+    return d.getFullYear() === currentYear;
+  });
+
+  let totalRevenue = 0;
+  let operationalExpenses = 0;
+  let jurosFinanceiro = 0;
+  let impostos = 0;
+  let depreciacaoAmortizacao = 0;
+  let fixedExpenses = 0;
+  let variableExpenses = 0;
+
+  paidTxs.forEach(t => {
+    const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
+    if (t.type === 'receita') {
+      totalRevenue += t.value;
+    } else {
+      if (tag === 'JUROS_FINANCEIRO') {
+        jurosFinanceiro += t.value;
+      } else if (tag === 'IMPOSTOS') {
+        impostos += t.value;
+        variableExpenses += t.value; // Impostos variam com o faturamento
+      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+        depreciacaoAmortizacao += t.value;
+      } else {
+        // Despesas e Custos Operacionais
+        operationalExpenses += t.value;
+        const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
+        if (nameUpper.includes('FOLHA') || nameUpper.includes('ALUGUEL') || nameUpper.includes('INFRA') || nameUpper.includes('SOFTWARE') || nameUpper.includes('HONORAR')) {
+          fixedExpenses += t.value;
+        } else {
+          variableExpenses += t.value;
+        }
+      }
+    }
+  });
+
+  // Se não houver despesas fixas explícitas, estimar 65% das operacionais como fixas
+  if (fixedExpenses === 0 && operationalExpenses > 0) {
+    fixedExpenses = operationalExpenses * 0.65;
+    variableExpenses = operationalExpenses * 0.35 + impostos;
+  }
+
+  // EBITDA = Receita Operacional - Custos/Despesas Operacionais (excluindo Juros, Impostos, Depreciação e Amortização)
+  const ebitda = totalRevenue - operationalExpenses;
+  const margemEbitda = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
+  const lucroLiquido = ebitda - jurosFinanceiro - impostos - depreciacaoAmortizacao;
+
+  // Margem de Contribuição = (Receita - Custos Variáveis) / Receita
+  const contributionMarginValue = Math.max(totalRevenue - variableExpenses, 0);
+  const contributionMarginPercent = totalRevenue > 0 ? (contributionMarginValue / totalRevenue) : 0.45;
+
+  // Break-Even Point (Ponto de Equilíbrio) = Custos Fixos / Margem de Contribuição (%)
+  const breakEvenPoint = contributionMarginPercent > 0 ? fixedExpenses / contributionMarginPercent : fixedExpenses * 1.5;
+  const safetyMarginValue = totalRevenue - breakEvenPoint;
+  const safetyMarginPercent = totalRevenue > 0 ? (safetyMarginValue / totalRevenue) * 100 : 0;
+
+  // Evolução Mensal do EBITDA e Ponto de Equilíbrio
+  const monthlyMap: Record<string, { rev: number; opEx: number; fixed: number; varEx: number }> = {};
+  
+  txs.filter(t => t.status === 'pago').forEach(t => {
+    const d = new Date(t.date);
+    const monthKey = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+    if (!monthlyMap[monthKey]) {
+      monthlyMap[monthKey] = { rev: 0, opEx: 0, fixed: 0, varEx: 0 };
+    }
+    const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
+    if (t.type === 'receita') {
+      monthlyMap[monthKey].rev += t.value;
+    } else if (tag === 'OPERACIONAL') {
+      monthlyMap[monthKey].opEx += t.value;
+      monthlyMap[monthKey].fixed += t.value * 0.65;
+      monthlyMap[monthKey].varEx += t.value * 0.35;
+    }
+  });
+
+  const ebitdaEvolution: EbitdaMonthlyItem[] = Object.keys(monthlyMap).map(m => {
+    const item = monthlyMap[m];
+    const itemEbitda = item.rev - item.opEx;
+    return {
+      month: m,
+      receitaLiquida: item.rev,
+      custosOperacionais: item.opEx,
+      ebitda: itemEbitda,
+      margemEbitda: item.rev > 0 ? (itemEbitda / item.rev) * 100 : 0,
+      lucroLiquido: itemEbitda * 0.85
+    };
+  }).reverse();
+
+  const monthlyBreakdown = Object.keys(monthlyMap).map(m => {
+    const item = monthlyMap[m];
+    const mc = item.rev > 0 ? (item.rev - item.varEx) / item.rev : 0.45;
+    const pe = mc > 0 ? item.fixed / mc : item.fixed * 1.5;
+    return {
+      month: m,
+      faturamento: item.rev,
+      custosFixos: item.fixed,
+      custosTotais: item.opEx,
+      pontoEquilibrio: pe
+    };
+  }).reverse();
+
+  return {
+    ebitda,
+    margemEbitda,
+    jurosFinanceiro,
+    impostos,
+    depreciacaoAmortizacao,
+    lucroLiquido,
+    breakEven: {
+      fixedExpenses,
+      variableExpenses,
+      totalRevenue,
+      contributionMarginValue,
+      contributionMarginPercent: contributionMarginPercent * 100,
+      breakEvenPoint,
+      safetyMarginValue,
+      safetyMarginPercent,
+      monthlyBreakdown
+    },
+    ebitdaEvolution
+  };
 };

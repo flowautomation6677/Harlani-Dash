@@ -3,24 +3,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useCompany } from '@/context/CompanyContext';
 import { getCashFlowData, DetailedCashFlowData } from '@/lib/api/niboClient';
-import { 
-  ComposedChart, 
-  Bar, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Legend 
-} from 'recharts';
+import { CashFlowBarChart } from '@/components/charts/CashFlowBarChart';
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { 
   DollarSign, 
   ArrowUpRight, 
   ArrowDownRight, 
   Download, 
   Plus, 
-  Activity, 
   CheckCircle2, 
   Clock 
 } from 'lucide-react';
@@ -79,7 +69,7 @@ export default function FluxoDeCaixaPage() {
       grouped[key].entradas += item.entradas;
       grouped[key].saidas += item.saidas;
       grouped[key].resultado += item.resultado;
-      grouped[key].saldoAcumulado = item.saldoAcumulado; // Atualiza com o último saldoAcumulado do período
+      grouped[key].saldoAcumulado = item.saldoAcumulado;
       if (item.status === 'projetado') grouped[key].status = 'projetado';
     });
 
@@ -87,12 +77,7 @@ export default function FluxoDeCaixaPage() {
   }, [dfc, period]);
 
   if (loading || !dfc) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted">
-        <Activity className="animate-spin text-primary" size={32} />
-        <div className="text-sm font-medium">Carregando Fluxo de Caixa (DFC) para {selectedCompany.name}...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const handleExport = async () => {
@@ -106,7 +91,7 @@ export default function FluxoDeCaixaPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `Fluxo de Caixa (${period})`
+        period: `Fluxo de Caixa Gageia Gestão (${period})`
       });
     } catch (error) {
       console.error('Erro ao exportar:', error);
@@ -132,7 +117,7 @@ export default function FluxoDeCaixaPage() {
               <span className="badge badge-success">Sincronizado Nibo</span>
             </div>
             <p className="text-xs text-muted mt-1">
-              Visão consolidada de entradas, saídas e movimentações bancárias
+              Visão consolidada de entradas, saídas operacionais e movimentações bancárias
             </p>
           </div>
         </div>
@@ -230,13 +215,13 @@ export default function FluxoDeCaixaPage() {
         </div>
       </div>
 
-      {/* Gráfico de Barras + Linha (Entradas/Saídas vs Saldo Acumulado) */}
+      {/* Gráfico Modular + Top Categorias */}
       <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div className="card" style={{ gridColumn: 'span 2' }}>
           <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
             <div>
-              <h3 className="font-bold text-lg">Evolução Diária do Caixa</h3>
-              <p className="text-xs text-muted">Entradas, saídas e saldo acumulado ao longo dos dias</p>
+              <h3 className="font-bold text-lg">Evolução do Caixa</h3>
+              <p className="text-xs text-muted">Entradas, saídas e saldo acumulado ao longo do período</p>
             </div>
             
             <div className="flex items-center gap-2">
@@ -249,25 +234,7 @@ export default function FluxoDeCaixaPage() {
             </div>
           </div>
 
-          <div style={{ height: '320px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(v) => `R$${v/1000}k`} />
-                <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#3b82f6', fontSize: 12 }} tickFormatter={(v) => `R$${v/1000}k`} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-lg)' }}
-                  formatter={(val: any, name: any) => [`R$ ${Number(val || 0).toLocaleString('pt-BR')}`, String(name)]}
-                />
-                <Legend wrapperStyle={{ paddingTop: '15px' }} />
-                
-                <Bar yAxisId="left" dataKey="entradas" name="Entradas (+)" fill="var(--secondary)" radius={[4, 4, 0, 0]} barSize={20} />
-                <Bar yAxisId="left" dataKey="saidas" name="Saídas (-)" fill="var(--danger)" radius={[4, 4, 0, 0]} barSize={20} />
-                <Line yAxisId="right" type="monotone" dataKey="saldoAcumulado" name="Saldo Acumulado" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+          <CashFlowBarChart data={filteredData} height={300} />
         </div>
 
         {/* Categorias Principais de Entrada e Saída */}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PieChart, DollarSign, FileText, Users, Settings, LogOut } from 'lucide-react';
+import { Home, PieChart, DollarSign, FileText, Users, BarChart3, Settings, LogOut } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -10,7 +10,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h2>Harlani<span className="text-primary">Dash</span></h2>
+        <h2>Gageia<span className="text-primary">Gestão</span></h2>
       </div>
       
       <nav className="sidebar-nav">
@@ -43,6 +43,12 @@ export function Sidebar() {
             <Link href="/clientes" className="nav-link">
               <Users size={20} />
               <span>Clientes & Fornecedores</span>
+            </Link>
+          </li>
+          <li className={`nav-item ${pathname === '/relatorios' ? 'active' : ''}`}>
+            <Link href="/relatorios" className="nav-link">
+              <BarChart3 size={20} />
+              <span>Relatórios Mensais</span>
             </Link>
           </li>
         </ul>

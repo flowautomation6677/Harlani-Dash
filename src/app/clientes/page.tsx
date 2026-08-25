@@ -16,6 +16,8 @@ import {
   Briefcase
 } from 'lucide-react';
 
+import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+
 export default function ClientesFornecedoresPage() {
   const { selectedCompany } = useCompany();
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
@@ -33,6 +35,10 @@ export default function ClientesFornecedoresPage() {
     }
     loadData();
   }, [selectedCompany.id]);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   const filteredList = useMemo(() => {
     return stakeholders.filter(stk => {
@@ -67,15 +73,6 @@ export default function ClientesFornecedoresPage() {
       .sort((a, b) => (b.totalValue || 0) - (a.totalValue || 0))
       .slice(0, 5);
   }, [stakeholders]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted">
-        <Activity className="animate-spin text-primary" size={32} />
-        <div className="text-sm font-medium">Buscando Clientes e Fornecedores cadastrados no Nibo para {selectedCompany.name}...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
