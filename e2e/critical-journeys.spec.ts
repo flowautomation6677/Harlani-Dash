@@ -1,4 +1,4 @@
-﻿/**
+/**
  * critical-journeys.spec.ts
  *
  * Testes E2E para as jornadas criticas do dashboard Harlani Gestao.
@@ -53,7 +53,7 @@ test.describe('Jornada: Dashboard Principal', () => {
 
     // Deve ter pelo menos uma opcao de empresa
     const options = page.locator('header select option');
-    await expect(options).toHaveCount(3); // 3 empresas cadastradas
+    await expect(options).toHaveCount(1); // Apenas a empresa real conectada
   });
 
   test('deve exibir cards de KPI financeiros na pagina inicial', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('Jornada: Dashboard Principal', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Jornada: Selecao de Empresa', () => {
-  test('deve atualizar o contexto ao trocar empresa no select do header', async ({ page }) => {
+  test('deve exibir a empresa conectada no select do header', async ({ page }) => {
     await page.goto('/');
 
     const select = page.locator('header select');
@@ -84,10 +84,6 @@ test.describe('Jornada: Selecao de Empresa', () => {
     // Verificar valor inicial (empresa 1)
     const initialValue = await select.inputValue();
     expect(initialValue).toBe('1');
-
-    // Trocar para empresa 2
-    await select.selectOption('2');
-    await expect(select).toHaveValue('2');
   });
 
   test('deve exibir o badge de status da empresa no header', async ({ page }) => {
@@ -101,17 +97,14 @@ test.describe('Jornada: Selecao de Empresa', () => {
 
   test('deve manter empresa selecionada ao navegar entre paginas', async ({ page }) => {
     await page.goto('/');
-
-    // Trocar para empresa 3
-    await page.locator('header select').selectOption('3');
-    await expect(page.locator('header select')).toHaveValue('3');
+    await expect(page.locator('header select')).toHaveValue('1');
 
     // Navegar para DRE
     await page.click('a[href="/dre"]');
     await page.waitForURL('/dre');
 
     // Empresa deve continuar selecionada (React Context persiste)
-    await expect(page.locator('header select')).toHaveValue('3');
+    await expect(page.locator('header select')).toHaveValue('1');
   });
 });
 

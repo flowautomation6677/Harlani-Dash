@@ -660,14 +660,7 @@ export interface CostCenter {
   description: string;
 }
 
-export const getBankAccounts = async (companyId: string): Promise<BankAccount[]> => {
-  if (companyId !== '1') {
-    return [
-      { id: 'b1', name: 'Itaú Unibanco', bankName: 'Itaú', openBalance: 125400.50, type: 'BankAccount', isVirtual: false, isAutomated: true },
-      { id: 'b2', name: 'Bradesco Prime', bankName: 'Bradesco', openBalance: 23119.95, type: 'BankAccount', isVirtual: false, isAutomated: true }
-    ];
-  }
-
+export const getBankAccounts = async (_companyId?: string): Promise<BankAccount[]> => {
   try {
     const res = await fetchNiboData('accounts');
     const items: unknown[] = res?.items || [];
@@ -691,14 +684,7 @@ export const getBankAccounts = async (companyId: string): Promise<BankAccount[]>
   }
 };
 
-export const getCostCenters = async (companyId: string): Promise<CostCenter[]> => {
-  if (companyId !== '1') {
-    return [
-      { costCenterId: 'cc1', description: 'Matriz São Paulo' },
-      { costCenterId: 'cc2', description: 'Filial Rio de Janeiro' }
-    ];
-  }
-
+export const getCostCenters = async (_companyId?: string): Promise<CostCenter[]> => {
   try {
     const res = await fetchNiboData('costcenters');
     const items = res?.items || [];
@@ -719,10 +705,6 @@ export const getDirectBankStatements = async (_accounts: BankAccount[]): Promise
 };
 
 export const getClientData = async (companyId: string) => {
-  if (companyId !== '1') {
-    // Para Nexus e Inovare mantemos o Mock para demonstração UI
-    return CLIENT_DATA_MOCK[companyId] || CLIENT_DATA_MOCK['1'];
-  }
 
   try {
     // 1. Carregar plano de categorias para enriquecimento

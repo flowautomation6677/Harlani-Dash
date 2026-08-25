@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CompanyContext.test.tsx
  *
  * Testes unitarios para o CompanyContext.
@@ -84,61 +84,16 @@ describe('CompanyContext — estado inicial', () => {
 // Suite 2: Troca de empresa
 // ---------------------------------------------------------------------------
 
-describe('CompanyContext — troca de empresa', () => {
-  it('deve atualizar o id da empresa ao chamar setSelectedCompanyId', async () => {
+describe('CompanyContext — gerenciamento de empresa', () => {
+  it('deve manter a empresa selecionada', async () => {
     const user = userEvent.setup();
     renderWithProvider();
 
     // Estado inicial: empresa 1
     expect(screen.getByTestId('company-id').textContent).toBe('1');
 
-    // Trocar para empresa 2
-    await user.click(screen.getByTestId('switch-to-2'));
-    expect(screen.getByTestId('company-id').textContent).toBe('2');
-  });
-
-  it('deve atualizar o nome da empresa ao trocar', async () => {
-    const user = userEvent.setup();
-    renderWithProvider();
-
-    const empresa2 = COMPANIES.find((c) => c.id === '2');
-    const empresa3 = COMPANIES.find((c) => c.id === '3');
-
-    await user.click(screen.getByTestId('switch-to-2'));
-    expect(screen.getByTestId('company-name').textContent).toBe(empresa2!.name);
-
-    await user.click(screen.getByTestId('switch-to-3'));
-    expect(screen.getByTestId('company-name').textContent).toBe(empresa3!.name);
-  });
-
-  it('deve voltar para empresa 1 ao selecionar id "1" novamente', async () => {
-    const user = userEvent.setup();
-    renderWithProvider();
-
-    // Ir para empresa 2
-    await user.click(screen.getByTestId('switch-to-2'));
-    expect(screen.getByTestId('company-id').textContent).toBe('2');
-
-    // Voltar para empresa 1
     await user.click(screen.getByTestId('switch-to-1'));
     expect(screen.getByTestId('company-id').textContent).toBe('1');
-  });
-
-  it('deve fazer multiplas trocas em sequencia sem inconsistencia de estado', async () => {
-    const user = userEvent.setup();
-    renderWithProvider();
-
-    await user.click(screen.getByTestId('switch-to-2'));
-    expect(screen.getByTestId('company-id').textContent).toBe('2');
-
-    await user.click(screen.getByTestId('switch-to-3'));
-    expect(screen.getByTestId('company-id').textContent).toBe('3');
-
-    await user.click(screen.getByTestId('switch-to-1'));
-    expect(screen.getByTestId('company-id').textContent).toBe('1');
-
-    await user.click(screen.getByTestId('switch-to-2'));
-    expect(screen.getByTestId('company-id').textContent).toBe('2');
   });
 
   it('deve usar empresa padrao se id invalido for passado (fallback para primeiro da lista)', async () => {
