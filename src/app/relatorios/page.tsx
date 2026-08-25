@@ -85,11 +85,11 @@ export default function RelatoriosMensaisPage() {
     <div className="animate-fade-in flex flex-col gap-6">
       {/* Toast de E-mail Enviado */}
       {emailSentToast && (
-        <div className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 border border-slate-700 animate-fade-in">
-          <CheckCircle2 size={24} className="text-emerald-400" />
+        <div className="flex items-center gap-3 animate-fade-in" style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', backgroundColor: '#0f172a', color: '#fff', padding: '1rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', zIndex: 50, border: '1px solid #334155' }}>
+          <CheckCircle2 size={24} style={{ color: 'var(--secondary)' }} />
           <div>
             <div className="font-bold text-sm">Relatório Enviado com Sucesso!</div>
-            <div className="text-xs text-slate-300">O PDF executivo e o sumário foram disparados para {emailInput}.</div>
+            <div className="text-xs" style={{ color: '#cbd5e1' }}>O PDF executivo e o sumário foram disparados para {emailInput}.</div>
           </div>
         </div>
       )}
@@ -98,7 +98,7 @@ export default function RelatoriosMensaisPage() {
       {emailModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+            <div className="flex justify-between items-center" style={{ marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
               <div className="flex items-center gap-2 text-primary font-bold">
                 <Mail size={20} />
                 <h3>Enviar Relatório Executivo Gageia Gestão</h3>
@@ -107,7 +107,7 @@ export default function RelatoriosMensaisPage() {
 
             <form onSubmit={handleSendEmail} className="flex flex-col gap-4">
               <div>
-                <label htmlFor="client-email" className="text-xs font-semibold text-muted mb-1 block">
+                <label htmlFor="client-email" className="text-xs font-semibold text-muted" style={{ marginBottom: '0.25rem', display: 'block' }}>
                   E-mail do Cliente / Diretoria
                 </label>
                 <input 
@@ -121,7 +121,7 @@ export default function RelatoriosMensaisPage() {
                 />
               </div>
 
-              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-secondary leading-relaxed">
+              <div className="text-xs text-secondary" style={{ padding: '0.75rem', backgroundColor: 'var(--primary-light)', borderRadius: 'var(--radius-md)', lineHeight: 1.5 }}>
                 O cliente receberá um e-mail personalizado da <strong>Gageia Gestão</strong> contendo o parecer dos especialistas, indicadores de EBITDA e o PDF corporativo anexado.
               </div>
 
@@ -140,9 +140,9 @@ export default function RelatoriosMensaisPage() {
       )}
 
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="card flex flex-wrap items-center justify-between gap-4" style={{ padding: '1.5rem' }}>
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center text-purple font-bold text-xl">
+          <div className="flex items-center justify-center font-bold text-xl text-purple" style={{ width: '3rem', height: '3rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--purple-light)' }}>
             <FileText size={24} />
           </div>
           <div>
@@ -277,15 +277,15 @@ export default function RelatoriosMensaisPage() {
       </div>
 
       {/* Parecer do Especialista Gageia Gestão */}
-      <div className="card" style={{ padding: '2rem', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '1rem', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+      <div className="card" style={{ padding: '2rem' }}>
+        <div className="flex flex-wrap items-center justify-between gap-4" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple border border-purple-100 flex items-center justify-center font-extrabold text-lg shadow-sm">
+            <div className="flex items-center justify-center font-bold text-lg text-purple" style={{ width: '3rem', height: '3rem', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--purple-light)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
               GG
             </div>
             <div>
-              <h3 className="font-bold text-lg text-slate-900">Parecer Técnico da Consultoria — Gageia Gestão</h3>
-              <p className="text-xs text-muted mt-0.5">Diagnóstico contábil e estratégico consolidado via Nibo Open API</p>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Parecer Técnico da Consultoria — Gageia Gestão</h3>
+              <p className="text-xs text-muted" style={{ marginTop: '0.125rem' }}>Diagnóstico contábil e estratégico consolidado via Nibo Open API</p>
             </div>
           </div>
           <span className="badge badge-purple" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
@@ -293,62 +293,62 @@ export default function RelatoriosMensaisPage() {
           </span>
         </div>
 
-        <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        <div className="report-grid">
           {/* Card 1: Eficiência Operacional */}
-          <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <div className="report-card report-card-success">
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3">
-                <CheckCircle2 size={18} className="text-emerald-600" />
+              <div className="report-title">
+                <CheckCircle2 size={18} className="report-icon" />
                 <span>Eficiência Operacional & EBITDA</span>
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">
-                A empresa <strong className="text-slate-900">{selectedCompany.name}</strong> obteve um EBITDA realizado de <strong className="text-emerald-700">R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, atingindo uma margem operacional pura de <strong className="text-emerald-700">{health.margemEbitda.toFixed(1)}%</strong>.
+              <p className="report-body">
+                A empresa <strong className="neutral">{selectedCompany.name}</strong> obteve um EBITDA realizado de <strong className="report-value">R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, atingindo uma margem operacional pura de <strong className="report-value">{health.margemEbitda.toFixed(1)}%</strong>.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-emerald-100/60 text-xs font-medium text-emerald-800">
+            <div className="report-footer">
               ✓ Capacidade de geração de caixa aprovada
             </div>
           </div>
 
           {/* Card 2: Ponto de Equilíbrio */}
-          <div className="p-5 rounded-xl border border-amber-100 bg-amber-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <div className="report-card report-card-warning">
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wider mb-3">
-                <Target size={18} className="text-amber-600" />
+              <div className="report-title">
+                <Target size={18} className="report-icon" />
                 <span>Ponto de Equilíbrio & Segurança</span>
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">
-                O ponto de equilíbrio (Break-Even) necessário é de <strong className="text-amber-900">R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>. A empresa opera com <strong className="text-amber-900">{health.breakEven.safetyMarginPercent.toFixed(1)}% de Margem de Segurança</strong> acima do limiar crítico.
+              <p className="report-body">
+                O ponto de equilíbrio (Break-Even) necessário é de <strong className="report-value">R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>. A empresa opera com <strong className="report-value">{health.breakEven.safetyMarginPercent.toFixed(1)}% de Margem de Segurança</strong> acima do limiar crítico.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-amber-100/60 text-xs font-medium text-amber-800">
+            <div className="report-footer">
               ✓ Cobertura integral de custos fixos
             </div>
           </div>
 
           {/* Card 3: Recomendação Estratégica */}
-          <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <div className="report-card report-card-info">
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">
-                <ShieldCheck size={18} className="text-blue-600" />
+              <div className="report-title">
+                <ShieldCheck size={18} className="report-icon" />
                 <span>Diretriz & Planejamento</span>
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">
-                Recomenda-se manter o teto de despesas fixas em <strong className="text-blue-900">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> e priorizar a alocação de liquidez em contas de aplicação remunerada.
+              <p className="report-body">
+                Recomenda-se manter o teto de despesas fixas em <strong className="report-value">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> e priorizar a alocação de liquidez em contas de aplicação remunerada.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-blue-100/60 text-xs font-medium text-blue-800">
+            <div className="report-footer">
               ✓ Planejamento orçamentário sustentável
             </div>
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-2 text-xs text-muted">
+        <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Relatório executivo gerado via <strong>Gageia Gestão BPO Financeiro</strong></span>
+            <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: 'var(--secondary)' }} />
+            <span>Relatório executivo gerado via <strong style={{ color: 'var(--text-primary)' }}>Gageia Gestão BPO Financeiro</strong></span>
           </div>
-          <div className="font-semibold text-purple bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
+          <div className="badge badge-purple" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
             Assinatura Digital com Validade Fiscal
           </div>
         </div>
