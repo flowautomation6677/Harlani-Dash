@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const NIBO_API_URL = process.env.NIBO_API_URL || 'https://api.nibo.com.br/empresas/v1';
 const NIBO_API_TOKEN = process.env.NIBO_API_TOKEN;
 
@@ -13,9 +15,7 @@ export async function GET(
 
   const { path } = await params;
   const endpoint = path.join('/');
-  const searchParams = request.nextUrl.searchParams.toString();
-  const query = searchParams ? `?${searchParams}` : '';
-  
+  const query = request.nextUrl.search || '';
   const targetUrl = `${NIBO_API_URL}/${endpoint}${query}`;
 
   try {

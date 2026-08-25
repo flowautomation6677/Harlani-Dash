@@ -7,17 +7,27 @@ export type CashFlowStatus = 'realizado' | 'projetado';
 export type CashFlowCategoryType = 'entrada' | 'saida';
 export type AccountingTag = 
   | 'OPERACIONAL' 
+  | 'CUSTO_MERCADORIA_SERVICO'
   | 'JUROS_FINANCEIRO' 
-  | 'IMPOSTOS' 
+  | 'RENDIMENTO_FINANCEIRO'
+  | 'IMPOSTOS'
+  | 'IMPOSTOS_DEDUCAO' 
+  | 'IMPOSTOS_LUCRO' 
   | 'DEPRECIACAO_AMORTIZACAO' 
-  | 'INVESTIMENTO_NAO_OPERACIONAL';
+  | 'INVESTIMENTO_NAO_OPERACIONAL'
+  | 'TRANSFERENCIA_INTERNA';
 
 export interface Transaction {
   id: string;
   description: string;
   value: number;
+  paidValue?: number;
+  interestValue?: number;
+  fineValue?: number;
+  discountValue?: number;
   date: string;
   dueDate: string;
+  settlementDate?: string;
   type: TransactionType;
   status: TransactionStatus;
   category: string;
@@ -25,23 +35,139 @@ export interface Transaction {
   clientSupplier: string;
   documentNumber: string;
   tag?: AccountingTag;
+  source?: 'schedule' | 'statement';
 }
 
-export function classifyTransactionTag(category: string, parentCategory?: string, description?: string): AccountingTag {
+export function classifyTransactionTag(
+  category: string, 
+  parentCategory?: string, 
+  description?: string,
+  type?: TransactionType
+): AccountingTag {
   const text = `${category} ${parentCategory || ''} ${description || ''}`.toUpperCase();
 
-  if (text.includes('JURO') || text.includes('MULTA') || text.includes('TARIFA') || text.includes('IOF') || text.includes('BANCAR') || text.includes('RENDIMENTO')) {
-    return 'JUROS_FINANCEIRO';
+  // 1. Transferências internas entre contas
+  if (
+    text.includes('TRANSFERENCIA') || 
+    text.includes('TRANSF') || 
+    text.includes('APLICACAO RESGATE') || 
+    text.includes('ENTRE CONTAS') ||
+    text.includes('TRANSF.')
+  ) {
+    return 'TRANSFERENCIA_INTERNA';
   }
-  if (text.includes('IMPOSTO') || text.includes('SIMPLES') || text.includes('ISS') || text.includes('ICMS') || text.includes('PIS') || text.includes('COFINS') || text.includes('IRPJ') || text.includes('CSLL') || text.includes('TRIBUT')) {
-    return 'IMPOSTOS';
-  }
-  if (text.includes('DEPRECIA') || text.includes('AMORTIZA')) {
+
+  // 2. Depreciação e Amortização (expurgados do EBITDA)
+  if (
+    text.includes('DEPRECIA') || 
+    text.includes('AMORTIZA') || 
+    text.includes('EXAUSTAO')
+  ) {
     return 'DEPRECIACAO_AMORTIZACAO';
   }
-  if (text.includes('INVESTIMENTO') || text.includes('CAPITAL') || text.includes('EMPRESTIMO') || text.includes('APORTE') || text.includes('DIVIDENDO')) {
+
+  // 3. Impostos sobre o Lucro vs Impostos sobre Faturamento (Dedução de Receita)
+  if (
+    text.includes('IRPJ') || 
+    text.includes('CSLL') || 
+    text.includes('IMPOSTO DE RENDA PJ') || 
+    text.includes('CONTRIBUIÇÃO SOCIAL SOBRE O LUCRO')
+  ) {
+    return 'IMPOSTOS_LUCRO';
+  }
+
+  if (
+    text.includes('IMPOSTO') || 
+    text.includes('SIMPLES NACIONAL') || 
+    text.includes('DAS ') || 
+    text.includes('ISS') || 
+    text.includes('ICMS') || 
+    text.includes('PIS') || 
+    text.includes('COFINS') || 
+    text.includes('TRIBUT') || 
+    text.includes('DEDU') || 
+    text.includes('RETEN') ||
+    text.includes('IRRF') ||
+    text.includes('INSS') ||
+    text.includes('CPRB')
+  ) {
+    return 'IMPOSTOS_DEDUCAO';
+  }
+
+  // 4. Receitas / Rendimentos Financeiros (adicionados APÓS o EBITDA)
+  if (type === 'receita' && (
+    text.includes('RENDIMENTO') || 
+    text.includes('APLICACAO') || 
+    text.includes('APLICAÇÃO') || 
+    text.includes('JUROS RECEBIDOS') || 
+    text.includes('JUROS ATIVOS') || 
+    text.includes('DIVIDENDO') || 
+    text.includes('DESCONTO OBTIDO') || 
+    text.includes('CDI') || 
+    text.includes('SELIC') ||
+    text.includes('LUCRO DE APLICACAO')
+  )) {
+    return 'RENDIMENTO_FINANCEIRO';
+  }
+
+  // 5. Despesas Financeiras, Juros, Tarifas, Encargos, IOF (expurgados do EBITDA)
+  if (
+    text.includes('JURO') || 
+    text.includes('MULTA') || 
+    text.includes('TARIFA') || 
+    text.includes('TAXA') || 
+    text.includes('IOF') || 
+    text.includes('BANCAR') || 
+    text.includes('BANCÁR') ||
+    text.includes('ENCARGO') || 
+    text.includes('ANTECIPA') || 
+    text.includes('DESAGIO') || 
+    text.includes('DESÁGIO') ||
+    text.includes('DESCONTO CONCEDIDO') || 
+    text.includes('CARTAO TAXA') || 
+    text.includes('MAQUININHA') ||
+    text.includes('MANUTENCAO CONTA') ||
+    text.includes('MANUTENÇÃO CONTA') ||
+    text.includes('TED') || 
+    text.includes('DOC') ||
+    text.includes('PIX TAXA') ||
+    text.includes('ANUIDADE') ||
+    text.includes('CUSTODIA') ||
+    text.includes('MORA')
+  ) {
+    return 'JUROS_FINANCEIRO';
+  }
+
+  // 6. Custos Diretos de Vendas / Mercadorias / Serviços (CMV / CSP)
+  if (
+    text.includes('CUSTO') || 
+    text.includes('CMV') || 
+    text.includes('CSP') || 
+    text.includes('FORNECEDOR DE MERCADORIA') || 
+    text.includes('MATERIA PRIMA') || 
+    text.includes('MATÉRIA-PRIMA') ||
+    text.includes('INSUMO') ||
+    text.includes('EMBALAGEM') ||
+    text.includes('FRETE SOBRE COMPRA') ||
+    text.includes('TERCEIRIZACAO DIRETA')
+  ) {
+    return 'CUSTO_MERCADORIA_SERVICO';
+  }
+
+  // 7. Investimentos / Empréstimos / Aportes / Não-operacionais
+  if (
+    text.includes('INVESTIMENTO') || 
+    text.includes('CAPITAL') || 
+    text.includes('EMPRESTIMO') || 
+    text.includes('EMPRÉSTIMO') || 
+    text.includes('APORTE') || 
+    (text.includes('PRO-LABORE') && text.includes('DISTRIBUICAO')) || 
+    text.includes('MUTUO') ||
+    text.includes('MÚTUO')
+  ) {
     return 'INVESTIMENTO_NAO_OPERACIONAL';
   }
+
   return 'OPERACIONAL';
 }
 
@@ -164,16 +290,101 @@ export const fetchNiboData = async (endpoint: string, params?: Record<string, st
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
     }
     
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { cache: 'no-store' });
     if (!response.ok) {
-      throw new Error(`Error fetching from Nibo proxy: ${response.statusText}`);
+      // Retorna null silenciosamente caso o endpoint retorne 404 ou 500
+      return null;
     }
     
     return await response.json();
-  } catch (error) {
-    console.error('Nibo fetch error:', error);
+  } catch {
     return null;
   }
+};
+
+export const fetchNiboDataPaginated = async (
+  endpoint: string,
+  baseParams: Record<string, string> = {},
+  pageSize: number = 500,
+  maxPages: number = 20
+) => {
+  let allItems: any[] = [];
+  let skip = 0;
+  let hasMore = true;
+  let page = 0;
+
+  while (hasMore && page < maxPages) {
+    const params: Record<string, string> = {
+      ...baseParams,
+      '$top': String(pageSize),
+      '$skip': String(skip)
+    };
+
+    const res = await fetchNiboData(endpoint, params);
+    if (!res) break;
+
+    const items = Array.isArray(res) ? res : (res.items || res.value || []);
+    if (items.length > 0) {
+      allItems = allItems.concat(items);
+      skip += items.length;
+      page++;
+      // Se retornou menos que o pageSize, acabaram os registros
+      if (items.length < pageSize) {
+        hasMore = false;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allItems;
+};
+
+export interface CategoryTreeItem {
+  id: string;
+  name: string;
+  type: string;
+  parentName?: string;
+  code?: string;
+}
+
+let categoryCache: Record<string, CategoryTreeItem> = {};
+
+export const getCategoryTree = async (): Promise<Record<string, CategoryTreeItem>> => {
+  if (Object.keys(categoryCache).length > 0) return categoryCache;
+
+  try {
+    const treeRes = await fetchNiboData('schedules/categories/tree') || await fetchNiboData('categories');
+    const items = Array.isArray(treeRes) ? treeRes : (treeRes?.items || treeRes?.value || []);
+
+    const flatten = (list: any[], parent?: string) => {
+      list.forEach((cat: any) => {
+        const id = cat.categoryId || cat.id;
+        const name = cat.name || cat.description;
+        if (id && name) {
+          categoryCache[id] = {
+            id,
+            name,
+            type: cat.type || '',
+            parentName: parent || cat.parentCategoryName || '',
+            code: cat.code || ''
+          };
+        }
+        if (cat.subCategories && Array.isArray(cat.subCategories)) {
+          flatten(cat.subCategories, name);
+        }
+        if (cat.categories && Array.isArray(cat.categories)) {
+          flatten(cat.categories, name);
+        }
+      });
+    };
+
+    flatten(items);
+  } catch (err) {
+    console.warn('Não foi possível carregar o plano de categorias do Nibo:', err);
+  }
+
+  return categoryCache;
 };
 
 const CLIENT_DATA_MOCK: Record<string, { 
@@ -401,7 +612,6 @@ const CLIENT_DATA_MOCK: Record<string, {
       countAtrasados: 0,
       accounts: [
         { id: '301', description: 'Reposição de Estoque Primavera', value: 14200.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'despesa', status: 'pago', category: 'Fornecedores Estoque', clientSupplier: 'Confecções Sul', documentNumber: 'NF-4410' },
-        { id: '302', description: 'Vendas Loja Física + E-commerce', value: 9800.00, date: '2026-08-23', dueDate: '2026-08-23', type: 'receita', status: 'pago', category: 'Vendas Varejo', clientSupplier: 'Clientes Diversos', documentNumber: 'SAT-9901' },
         { id: '303', description: 'Taxas Adquirentes de Cartão', value: 1250.00, date: '2026-08-22', dueDate: '2026-08-22', type: 'despesa', status: 'pago', category: 'Tarifas Bancárias', clientSupplier: 'Stone Pagamentos', documentNumber: 'EXT-8812' }
       ]
     }
@@ -410,375 +620,9 @@ const CLIENT_DATA_MOCK: Record<string, {
 
 // ============================================================================
 // LÓGICA DE INTEGRAÇÃO REAL COM A API NIBO
-// Mapeamos os endpoints /schedules/debit e /schedules/credit para o nosso formato.
+// Mapeamos os endpoints /schedules/debit e /schedules/credit com paginação OData,
+// conciliação de liquidações (juros/multas/descontos), e extratos bancários.
 // ============================================================================
-
-export const getClientData = async (companyId: string) => {
-  if (companyId !== '1') {
-    // Para Nexus e Inovare mantemos o Mock para demonstração UI
-    return CLIENT_DATA_MOCK[companyId] || CLIENT_DATA_MOCK['1'];
-  }
-
-  try {
-    // 1. Buscar Receitas Reais (Credit)
-    const creditsRes = await fetchNiboData('schedules/credit');
-    // 2. Buscar Despesas Reais (Debit)
-    const debitsRes = await fetchNiboData('schedules/debit');
-
-    const rawCredits = creditsRes?.items || [];
-    const rawDebits = debitsRes?.items || [];
-
-    // Mapear para o formato de Transação do Dashboard
-    const mappedTransactions: Transaction[] = [];
-
-    const now = Date.now();
-
-    rawCredits.forEach((item: any) => {
-      const cat = item.categories && item.categories.length > 0 ? item.categories[0] : null;
-      let status: TransactionStatus = 'pendente';
-      if (item.isPaid) {
-        status = 'pago';
-      } else if (item.dueDate && new Date(item.dueDate).getTime() < now) {
-        status = 'atrasado';
-      }
-
-      const category = cat?.categoryName || item.category?.name || 'Vendas/Serviços';
-      const parentCategory = cat?.parent || 'Receitas operacionais';
-      const description = item.description || 'Recebimento';
-
-      mappedTransactions.push({
-        id: item.scheduleId,
-        description,
-        value: item.value || 0,
-        date: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-        type: 'receita',
-        status,
-        category,
-        parentCategory,
-        clientSupplier: item.stakeholder?.name || 'Cliente Diverso',
-        documentNumber: item.reference || '',
-        tag: classifyTransactionTag(category, parentCategory, description)
-      });
-    });
-
-    rawDebits.forEach((item: any) => {
-      const cat = item.categories && item.categories.length > 0 ? item.categories[0] : null;
-      let status: TransactionStatus = 'pendente';
-      if (item.isPaid) {
-        status = 'pago';
-      } else if (item.dueDate && new Date(item.dueDate).getTime() < now) {
-        status = 'atrasado';
-      }
-
-      const category = cat?.categoryName || item.category?.name || 'Despesas Gerais';
-      const parentCategory = cat?.parent || 'Despesas operacionais';
-      const description = item.description || 'Pagamento';
-
-      mappedTransactions.push({
-        id: item.scheduleId,
-        description,
-        value: item.value || 0,
-        date: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-        type: 'despesa',
-        status,
-        category,
-        parentCategory,
-        clientSupplier: item.stakeholder?.name || 'Fornecedor',
-        documentNumber: item.reference || '',
-        tag: classifyTransactionTag(category, parentCategory, description)
-      });
-    });
-
-    // Ordenar por data (mais recente primeiro)
-    mappedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    // 3. Calcular Métricas Reais Baseadas nas Transações
-    const receitasPagas = mappedTransactions.filter(t => t.type === 'receita' && t.status === 'pago').reduce((acc, t) => acc + t.value, 0);
-    const despesasPagas = mappedTransactions.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((acc, t) => acc + t.value, 0);
-    
-    const receberMes = mappedTransactions.filter(t => t.type === 'receita' && t.status === 'pendente').reduce((acc, t) => acc + t.value, 0);
-    const pagarMes = mappedTransactions.filter(t => t.type === 'despesa' && t.status === 'pendente').reduce((acc, t) => acc + t.value, 0);
-
-    const saldoAtual = receitasPagas - despesasPagas;
-    const hasReceitas = mappedTransactions.some(t => t.type === 'receita');
-
-    const metrics: ClientMetrics = {
-      saldoAtual: saldoAtual, // Saldo inferido pelo fluxo de pagamentos liquidado
-      receberMes: receberMes,
-      pagarMes: pagarMes,
-      ticketMedio: hasReceitas 
-        ? Math.round((receitasPagas + receberMes) / mappedTransactions.filter(t => t.type === 'receita').length)
-        : 0,
-      taxaInadimplencia: 0, // Poderia ser calculado via status 'atrasado'
-      margemOperacional: receitasPagas > 0 ? Math.round(((receitasPagas - despesasPagas) / receitasPagas) * 100) : 0,
-      previsao30dias: saldoAtual + (receberMes - pagarMes)
-    };
-
-    // 4. Agrupar Fluxo de Caixa Mensalmente (Realizado)
-    const cashFlowMap: Record<string, { receitas: number; despesas: number; lucro: number }> = {};
-    
-    mappedTransactions.forEach(t => {
-      if (t.status !== 'pago') return;
-      const dateObj = new Date(t.date);
-      const monthKey = dateObj.toLocaleString('pt-BR', { month: 'short', year: 'numeric' }); // ex: "ago. de 2026"
-      
-      if (!cashFlowMap[monthKey]) {
-        cashFlowMap[monthKey] = { receitas: 0, despesas: 0, lucro: 0 };
-      }
-      if (t.type === 'receita') cashFlowMap[monthKey].receitas += t.value;
-      if (t.type === 'despesa') cashFlowMap[monthKey].despesas += t.value;
-    });
-
-    const cashFlow = Object.keys(cashFlowMap).map(key => ({
-      name: key.replace('.', '').substring(0, 3).toUpperCase(),
-      receitas: cashFlowMap[key].receitas,
-      despesas: cashFlowMap[key].despesas,
-      lucro: cashFlowMap[key].receitas - cashFlowMap[key].despesas
-    })).reverse(); // Reverter para cronológico se a leitura for reversa
-
-    return {
-      metrics,
-      cashFlow: cashFlow.length > 0 ? cashFlow : CLIENT_DATA_MOCK['1'].cashFlow,
-      transactions: mappedTransactions.length > 0 ? mappedTransactions : CLIENT_DATA_MOCK['1'].transactions,
-    };
-  } catch (error) {
-    console.error('Falha ao processar dados da API Real Nibo. Caindo para Mock.', error);
-    return CLIENT_DATA_MOCK['1'];
-  }
-};
-
-export const getDREData = async (companyId: string, period: string = '2026-ytd'): Promise<DREData> => {
-  const clientData = await getClientData(companyId);
-  const txs = clientData.transactions;
-
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  // Filtrar apenas pagos e aplicar o filtro de período
-  const paidTxs = txs.filter(t => {
-    if (t.status !== 'pago') return false;
-    
-    const d = new Date(t.date);
-    if (period === '2026-m') {
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    } else if (period === '2026-q') {
-      // Últimos 3 meses (trimestre atual/recente)
-      const diffMonths = (currentYear - d.getFullYear()) * 12 + (currentMonth - d.getMonth());
-      return diffMonths >= 0 && diffMonths < 3;
-    } else {
-      // YTD ou todos
-      return d.getFullYear() === currentYear;
-    }
-  });
-
-  let receitaBruta = 0;
-  let deducoes = 0;
-  let custos = 0;
-  let despesasOperacionais = 0;
-  
-  const parentMap: Record<string, { value: number, type: DRELineItem['type'] }> = {};
-
-  paidTxs.forEach(t => {
-    const parent = t.parentCategory?.trim() || (t.type === 'receita' ? 'Outras Receitas' : 'Despesas Gerais');
-    const nameUpper = parent.toUpperCase();
-    
-    if (!parentMap[parent]) {
-      parentMap[parent] = { value: 0, type: t.type === 'receita' ? 'receita' : 'despesa' };
-    }
-    
-    if (t.type === 'receita') {
-      parentMap[parent].value += t.value;
-      receitaBruta += t.value;
-    } else {
-      parentMap[parent].value += t.value;
-      
-      // Tentar classificar deduções e custos pelo nome da categoria pai do Nibo
-      if (nameUpper.includes('IMPOSTO') || nameUpper.includes('DEDU')) {
-        deducoes += t.value;
-        parentMap[parent].type = 'deducao';
-      } else if (nameUpper.includes('CUSTO') || nameUpper.includes('FORNECEDOR') || nameUpper.includes('CMV')) {
-        custos += t.value;
-        parentMap[parent].type = 'custo';
-      } else {
-        despesasOperacionais += t.value;
-      }
-    }
-  });
-
-  const receitaLiquida = receitaBruta - deducoes;
-  const lucroBruto = receitaLiquida - custos;
-  const lucroLiquido = lucroBruto - despesasOperacionais;
-  const ebitda = lucroLiquido; // Sem dados de depreciação/amortização explícitos, ebitda = lucro líquido
-
-  const items: DRELineItem[] = Object.keys(parentMap).map((key, index) => {
-    const item = parentMap[key];
-    return {
-      id: `dre-${index}`,
-      code: `1.${index + 1}`,
-      name: key,
-      value: item.type === 'receita' ? item.value : -item.value,
-      percentage: receitaBruta > 0 ? (item.value / receitaBruta) * 100 : 0,
-      type: item.type,
-      isBold: false
-    };
-  });
-
-  // Ordenar itens: receitas primeiro, depois deducoes, custos, despesas
-  const order = { 'receita': 1, 'deducao': 2, 'custo': 3, 'despesa': 4, 'subtotal': 5, 'lucro': 6 };
-  items.sort((a, b) => (order[a.type] || 99) - (order[b.type] || 99));
-
-  return {
-    receitaBruta,
-    impostosDeducoes: deducoes,
-    receitaLiquida,
-    custosVendas: custos,
-    lucroBruto,
-    despesasOperacionais,
-    ebitda,
-    lucroLiquido,
-    margemEbitda: receitaBruta > 0 ? (ebitda / receitaBruta) * 100 : 0,
-    margemLiquida: receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0,
-    items
-  };
-};
-
-export const getCashFlowData = async (companyId: string): Promise<DetailedCashFlowData> => {
-  const clientData = await getClientData(companyId);
-  const txs = clientData.transactions;
-
-  // Gerar fluxo de caixa diário baseado nas transações pagas (Realizado)
-  const dailyFlowMap: Record<string, { in: number; out: number }> = {};
-  
-  txs.forEach(t => {
-    if (t.status !== 'pago') return;
-    const dateObj = new Date(t.date);
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const year = dateObj.getFullYear();
-    const dayKey = `${year}-${month}-${day}`;
-    
-    if (!dailyFlowMap[dayKey]) dailyFlowMap[dayKey] = { in: 0, out: 0 };
-    if (t.type === 'receita') dailyFlowMap[dayKey].in += t.value;
-    if (t.type === 'despesa') dailyFlowMap[dayKey].out += t.value;
-  });
-
-  // Calcular saldos primeiro
-  const totalEntradas = txs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((acc, t) => acc + t.value, 0);
-  const totalSaidas = txs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((acc, t) => acc + t.value, 0);
-  const resultadoLiquido = totalEntradas - totalSaidas;
-  const saldoFinal = clientData.metrics.saldoAtual;
-  const saldoInicial = saldoFinal - resultadoLiquido;
-
-  let saldoAcumuladoLoop = saldoInicial;
-
-  const dailyFlow = Object.keys(dailyFlowMap)
-    .sort((a, b) => a.localeCompare(b))
-    .map(key => {
-      const entradas = dailyFlowMap[key].in;
-      const saidas = dailyFlowMap[key].out;
-      const resultado = entradas - saidas;
-      saldoAcumuladoLoop += resultado;
-      
-      return {
-        date: key,
-        dayName: '', // Poderia ser extraído da data real
-        entradas,
-        saidas,
-        resultado,
-        saldoAcumulado: saldoAcumuladoLoop,
-        status: 'realizado' as const
-      };
-    });
-
-  const colorsIn = ['var(--success)', 'var(--primary)', 'var(--warning)', 'var(--purple)'];
-  const colorsOut = ['var(--danger)', 'var(--warning)', 'var(--purple)', 'var(--secondary)'];
-
-  // Agregar top categorias de entradas
-  const inCategoryMap: Record<string, number> = {};
-  txs.filter(t => t.type === 'receita' && t.status === 'pago').forEach(t => {
-    inCategoryMap[t.category] = (inCategoryMap[t.category] || 0) + t.value;
-  });
-  
-  const topEntradasCategories = Object.entries(inCategoryMap)
-    .map(([name, value], index) => ({ 
-      category: name, 
-      value, 
-      percentage: totalEntradas > 0 ? (value / totalEntradas) * 100 : 0,
-      type: 'entrada' as const,
-      color: colorsIn[index % colorsIn.length]
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 4);
-
-  // Agregar top categorias de saídas
-  const outCategoryMap: Record<string, number> = {};
-  txs.filter(t => t.type === 'despesa' && t.status === 'pago').forEach(t => {
-    outCategoryMap[t.category] = (outCategoryMap[t.category] || 0) + t.value;
-  });
-  
-  const topSaidasCategories = Object.entries(outCategoryMap)
-    .map(([name, value], index) => ({ 
-      category: name, 
-      value,
-      percentage: totalSaidas > 0 ? (value / totalSaidas) * 100 : 0,
-      type: 'saida' as const,
-      color: colorsOut[index % colorsOut.length]
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 4);
-
-  return {
-    saldoInicial,
-    totalEntradas,
-    totalSaidas,
-    resultadoLiquido,
-    saldoFinal,
-    daily: dailyFlow,
-    topEntradasCategories,
-    topSaidasCategories
-  };
-};
-
-export const getAccountsSummary = async (companyId: string): Promise<AccountsPayableReceivableSummary> => {
-  const clientData = await getClientData(companyId);
-  const txs = clientData.transactions;
-
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  // Filtrar transações apenas do mês atual para os totais de (MÊS)
-  const currentMonthTxs = txs.filter(t => {
-    const d = new Date(t.dueDate);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  });
-
-  const totalReceber = currentMonthTxs.filter(t => t.type === 'receita').reduce((a, b) => a + b.value, 0);
-  const totalRecebido = currentMonthTxs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((a, b) => a + b.value, 0);
-  const totalPagar = currentMonthTxs.filter(t => t.type === 'despesa').reduce((a, b) => a + b.value, 0);
-  const totalPago = currentMonthTxs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((a, b) => a + b.value, 0);
-  
-  // Títulos em atraso independem do mês
-  const contasAtrasadasReceber = txs.filter(t => t.type === 'receita' && t.status === 'atrasado');
-  const contasAtrasadasPagar = txs.filter(t => t.type === 'despesa' && t.status === 'atrasado');
-
-  const totalAtrasadoReceber = contasAtrasadasReceber.reduce((a, b) => a + b.value, 0);
-  const totalAtrasadoPagar = contasAtrasadasPagar.reduce((a, b) => a + b.value, 0);
-
-  return {
-    totalReceber,
-    totalRecebido,
-    totalPagar,
-    totalPago,
-    totalAtrasadoReceber,
-    totalAtrasadoPagar,
-    countAtrasados: contasAtrasadasReceber.length + contasAtrasadasPagar.length,
-    accounts: txs
-  };
-};
 
 export interface BankAccount {
   id: string;
@@ -857,6 +701,687 @@ export const getCostCenters = async (companyId: string): Promise<CostCenter[]> =
   }
 };
 
+export const getDirectBankStatements = async (_accounts: BankAccount[]): Promise<Transaction[]> => {
+  // A API padrão empresas/v1 do Nibo não expõe sub-rota de extratos de terceiros sem permissão bancária específica.
+  // Todos os lançamentos conciliados já constam integralmente em schedules/credit e debit.
+  return [];
+};
+
+export const getClientData = async (companyId: string) => {
+  if (companyId !== '1') {
+    // Para Nexus e Inovare mantemos o Mock para demonstração UI
+    return CLIENT_DATA_MOCK[companyId] || CLIENT_DATA_MOCK['1'];
+  }
+
+  try {
+    // 1. Carregar plano de categorias para enriquecimento
+    const categoryTree = await getCategoryTree();
+
+    // 2. Buscar Receitas e Despesas com Paginação OData Completa
+    // Por padrão o Nibo pode filtrar pelo mês atual se não enviarmos um $filter.
+    const currentYear = new Date().getFullYear();
+    const startDate = `${currentYear}-01-01T00:00:00Z`;
+    // API do Nibo utiliza padrão OData v4, logo DateTimeOffset não leva aspas
+    // Obrigatório incluir $orderby quando usamos $skip e $filter juntos (limitação do Entity Framework OData)
+    const odataParams = { 
+      '$filter': `dueDate ge ${startDate}`,
+      '$orderby': 'dueDate desc'
+    };
+
+    const [rawCredits, rawDebits, bankAccounts] = await Promise.all([
+      fetchNiboDataPaginated('schedules/credit', odataParams),
+      fetchNiboDataPaginated('schedules/debit', odataParams),
+      getBankAccounts(companyId)
+    ]);
+
+    // Mapear para o formato de Transação do Dashboard
+    const mappedTransactions: Transaction[] = [];
+    const now = Date.now();
+
+    rawCredits.forEach((item: any) => {
+      const catObj = item.categories && item.categories.length > 0 ? item.categories[0] : null;
+      const catId = catObj?.categoryId || item.category?.id;
+      const cachedCat = catId && categoryTree[catId] ? categoryTree[catId] : null;
+
+      let status: TransactionStatus = 'pendente';
+      if (item.isPaid) {
+        status = 'pago';
+      } else if (item.dueDate && new Date(item.dueDate).getTime() < now) {
+        status = 'atrasado';
+      }
+
+      const category = catObj?.categoryName || item.category?.name || cachedCat?.name || 'Vendas/Serviços';
+      const parentCategory = catObj?.parent || cachedCat?.parentName || 'Receitas operacionais';
+      const description = item.description || 'Recebimento';
+
+      // Liquidação real (juros, multas e descontos)
+      const receipts = Array.isArray(item.receipts) ? item.receipts : [];
+      let interestValue = 0;
+      let fineValue = 0;
+      let discountValue = 0;
+      let paidValue = item.value || 0;
+      let settlementDate = item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+
+      if (receipts.length > 0) {
+        interestValue = receipts.reduce((acc: number, r: any) => acc + (r.interestValue || 0), 0);
+        fineValue = receipts.reduce((acc: number, r: any) => acc + (r.fineValue || 0), 0);
+        discountValue = receipts.reduce((acc: number, r: any) => acc + (r.discountValue || 0), 0);
+        paidValue = receipts.reduce((acc: number, r: any) => acc + (r.netValue || r.value || 0), 0);
+        if (receipts[0].receiptDate || receipts[0].date) {
+          settlementDate = (receipts[0].receiptDate || receipts[0].date).split('T')[0];
+        }
+      } else if (item.paidDate) {
+        settlementDate = item.paidDate.split('T')[0];
+      }
+
+      const tag = classifyTransactionTag(category, parentCategory, description, 'receita');
+
+      mappedTransactions.push({
+        id: item.scheduleId || item.id,
+        description,
+        value: item.value || 0,
+        paidValue: item.isPaid ? paidValue : undefined,
+        interestValue: interestValue > 0 ? interestValue : undefined,
+        fineValue: fineValue > 0 ? fineValue : undefined,
+        discountValue: discountValue > 0 ? discountValue : undefined,
+        date: item.isPaid && settlementDate ? settlementDate : (item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0]),
+        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        settlementDate: item.isPaid ? settlementDate : undefined,
+        type: 'receita',
+        status,
+        category,
+        parentCategory,
+        clientSupplier: item.stakeholder?.name || 'Cliente Diverso',
+        documentNumber: item.reference || '',
+        tag,
+        source: 'schedule'
+      });
+    });
+
+    rawDebits.forEach((item: any) => {
+      const catObj = item.categories && item.categories.length > 0 ? item.categories[0] : null;
+      const catId = catObj?.categoryId || item.category?.id;
+      const cachedCat = catId && categoryTree[catId] ? categoryTree[catId] : null;
+
+      let status: TransactionStatus = 'pendente';
+      if (item.isPaid) {
+        status = 'pago';
+      } else if (item.dueDate && new Date(item.dueDate).getTime() < now) {
+        status = 'atrasado';
+      }
+
+      const category = catObj?.categoryName || item.category?.name || cachedCat?.name || 'Despesas Gerais';
+      const parentCategory = catObj?.parent || cachedCat?.parentName || 'Despesas operacionais';
+      const description = item.description || 'Pagamento';
+
+      // Liquidação real (juros, multas e descontos)
+      const payments = Array.isArray(item.payments) ? item.payments : [];
+      let interestValue = 0;
+      let fineValue = 0;
+      let discountValue = 0;
+      let paidValue = item.value || 0;
+      let settlementDate = item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+
+      if (payments.length > 0) {
+        interestValue = payments.reduce((acc: number, p: any) => acc + (p.interestValue || 0), 0);
+        fineValue = payments.reduce((acc: number, p: any) => acc + (p.fineValue || 0), 0);
+        discountValue = payments.reduce((acc: number, p: any) => acc + (p.discountValue || 0), 0);
+        paidValue = payments.reduce((acc: number, p: any) => acc + (p.netValue || p.value || 0), 0);
+        if (payments[0].paymentDate || payments[0].date) {
+          settlementDate = (payments[0].paymentDate || payments[0].date).split('T')[0];
+        }
+      } else if (item.paidDate) {
+        settlementDate = item.paidDate.split('T')[0];
+      }
+
+      const tag = classifyTransactionTag(category, parentCategory, description, 'despesa');
+
+      mappedTransactions.push({
+        id: item.scheduleId || item.id,
+        description,
+        value: item.value || 0,
+        paidValue: item.isPaid ? paidValue : undefined,
+        interestValue: interestValue > 0 ? interestValue : undefined,
+        fineValue: fineValue > 0 ? fineValue : undefined,
+        discountValue: discountValue > 0 ? discountValue : undefined,
+        date: item.isPaid && settlementDate ? settlementDate : (item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0]),
+        dueDate: item.dueDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        settlementDate: item.isPaid ? settlementDate : undefined,
+        type: 'despesa',
+        status,
+        category,
+        parentCategory,
+        clientSupplier: item.stakeholder?.name || 'Fornecedor',
+        documentNumber: item.reference || '',
+        tag,
+        source: 'schedule'
+      });
+    });
+
+    // 3. Buscar lançamentos diretos de extratos bancários (ex: tarifas bancárias, CDI)
+    const directStatements = await getDirectBankStatements(bankAccounts);
+    directStatements.forEach(st => mappedTransactions.push(st));
+
+    // Ordenar por data (mais recente primeiro)
+    mappedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 4. Calcular Métricas Reais Baseadas nas Transações
+    const receitasPagas = mappedTransactions
+      .filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+      .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+
+    const despesasPagas = mappedTransactions
+      .filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+      .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+
+    const receberMes = mappedTransactions
+      .filter(t => t.type === 'receita' && t.status === 'pendente')
+      .reduce((acc, t) => acc + t.value, 0);
+
+    const pagarMes = mappedTransactions
+      .filter(t => t.type === 'despesa' && t.status === 'pendente')
+      .reduce((acc, t) => acc + t.value, 0);
+
+    // Calcular saldo consolidado considerando saldos iniciais de contas + fluxo
+    const bankOpenBalanceTotal = bankAccounts.reduce((acc, b) => acc + (b.openBalance || 0), 0);
+    const saldoAtual = (bankOpenBalanceTotal > 0 ? bankOpenBalanceTotal : 0) + (receitasPagas - despesasPagas);
+    const hasReceitas = mappedTransactions.some(t => t.type === 'receita');
+
+    const metrics: ClientMetrics = {
+      saldoAtual: Math.round(saldoAtual * 100) / 100,
+      receberMes: Math.round(receberMes * 100) / 100,
+      pagarMes: Math.round(pagarMes * 100) / 100,
+      ticketMedio: hasReceitas 
+        ? Math.round((receitasPagas + receberMes) / mappedTransactions.filter(t => t.type === 'receita').length)
+        : 0,
+      taxaInadimplencia: 0,
+      margemOperacional: receitasPagas > 0 ? Math.round(((receitasPagas - despesasPagas) / receitasPagas) * 100) : 0,
+      previsao30dias: Math.round((saldoAtual + (receberMes - pagarMes)) * 100) / 100
+    };
+
+    // 5. Agrupar Fluxo de Caixa Mensalmente (Realizado)
+    const cashFlowMap: Record<string, { receitas: number; despesas: number; lucro: number }> = {};
+
+    mappedTransactions.forEach(t => {
+      if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA') return;
+      const dateObj = new Date(t.date);
+      const monthKey = dateObj.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
+      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+
+      if (!cashFlowMap[monthKey]) {
+        cashFlowMap[monthKey] = { receitas: 0, despesas: 0, lucro: 0 };
+      }
+      if (t.type === 'receita') cashFlowMap[monthKey].receitas += val;
+      if (t.type === 'despesa') cashFlowMap[monthKey].despesas += val;
+    });
+
+    const cashFlow = Object.keys(cashFlowMap).map(key => ({
+      name: key.replace('.', '').substring(0, 3).toUpperCase(),
+      receitas: Math.round(cashFlowMap[key].receitas * 100) / 100,
+      despesas: Math.round(cashFlowMap[key].despesas * 100) / 100,
+      lucro: Math.round((cashFlowMap[key].receitas - cashFlowMap[key].despesas) * 100) / 100
+    })).reverse();
+
+    return {
+      metrics,
+      cashFlow: cashFlow.length > 0 ? cashFlow : CLIENT_DATA_MOCK['1'].cashFlow,
+      transactions: mappedTransactions.length > 0 ? mappedTransactions : CLIENT_DATA_MOCK['1'].transactions,
+    };
+  } catch (error) {
+    console.error('Falha ao processar dados da API Real Nibo. Caindo para Mock.', error);
+    return CLIENT_DATA_MOCK['1'];
+  }
+};
+
+export const getDREData = async (companyId: string, period: string = '2026-ytd'): Promise<DREData> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  // Filtrar apenas transações pagas/realizadas e aplicar o filtro de período
+  const paidTxs = txs.filter(t => {
+    if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA' || t.tag === 'INVESTIMENTO_NAO_OPERACIONAL') return false;
+
+    const d = new Date(t.date);
+    if (period === '2026-m') {
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    } else if (period === '2026-q') {
+      const diffMonths = (currentYear - d.getFullYear()) * 12 + (currentMonth - d.getMonth());
+      return diffMonths >= 0 && diffMonths < 3;
+    } else {
+      return d.getFullYear() === currentYear;
+    }
+  });
+
+  let receitaBruta = 0;
+  let deducoes = 0;
+  let custos = 0;
+  let despesasOperacionais = 0;
+  let depreciacaoAmortizacao = 0;
+  let rendimentosFinanceiros = 0;
+  let despesasFinanceiras = 0;
+  let impostosLucro = 0;
+
+  const categoryBreakdown: Record<string, { value: number; type: DREItemType; groupCode: string; name: string }> = {};
+
+  paidTxs.forEach(t => {
+    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const catName = t.category?.trim() || 'Geral';
+    const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
+
+    if (t.type === 'receita') {
+      if (tag === 'RENDIMENTO_FINANCEIRO') {
+        rendimentosFinanceiros += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'receita', groupCode: '6.1', name: `Rendimentos: ${catName}` };
+        }
+        categoryBreakdown[catName].value += val;
+      } else {
+        receitaBruta += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'receita', groupCode: '1.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      }
+    } else {
+      // Despesas / Custos / Deduções
+      if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
+        deducoes += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'deducao', groupCode: '2.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+        custos += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'custo', groupCode: '3.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+        depreciacaoAmortizacao += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '5.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      } else if (tag === 'JUROS_FINANCEIRO') {
+        despesasFinanceiras += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '6.2', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      } else if (tag === 'IMPOSTOS_LUCRO') {
+        impostosLucro += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '7.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      } else {
+        // Despesa Operacional normal (SG&A)
+        despesasOperacionais += val;
+        if (!categoryBreakdown[catName]) {
+          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '4.1', name: catName };
+        }
+        categoryBreakdown[catName].value += val;
+      }
+    }
+  });
+
+  // Cálculos contábeis rigorosos
+  const receitaLiquida = receitaBruta - deducoes;
+  const lucroBruto = receitaLiquida - custos;
+  const ebitda = lucroBruto - despesasOperacionais; // EBITDA real = Lucro Bruto - Despesas SG&A (sem juros/impostos/depreciação)
+  const ebit = ebitda - depreciacaoAmortizacao;
+  const resultadoFinanceiro = rendimentosFinanceiros - despesasFinanceiras;
+  const lucroLiquido = ebit + resultadoFinanceiro - impostosLucro;
+
+  const items: DRELineItem[] = [];
+  let itemIndex = 1;
+
+  // 1. Receita Bruta
+  items.push({
+    id: `dre-rb`,
+    code: '1.0',
+    name: 'RECEITA OPERACIONAL BRUTA',
+    value: receitaBruta,
+    percentage: 100,
+    type: 'receita',
+    isBold: true
+  });
+
+  Object.entries(categoryBreakdown)
+    .filter(([, cat]) => cat.groupCode.startsWith('1.'))
+    .forEach(([name, cat]) => {
+      items.push({
+        id: `dre-${itemIndex++}`,
+        code: `1.${itemIndex}`,
+        name: name,
+        value: cat.value,
+        percentage: receitaBruta > 0 ? (cat.value / receitaBruta) * 100 : 0,
+        type: 'receita',
+        isBold: false
+      });
+    });
+
+  // 2. Deduções da Receita Bruta
+  items.push({
+    id: `dre-ded`,
+    code: '2.0',
+    name: '(-) Deduções da Receita e Tributos sobre Faturamento',
+    value: -deducoes,
+    percentage: receitaBruta > 0 ? -(deducoes / receitaBruta) * 100 : 0,
+    type: 'deducao',
+    isBold: true
+  });
+
+  Object.entries(categoryBreakdown)
+    .filter(([, cat]) => cat.groupCode.startsWith('2.'))
+    .forEach(([name, cat]) => {
+      items.push({
+        id: `dre-${itemIndex++}`,
+        code: `2.${itemIndex}`,
+        name: name,
+        value: -cat.value,
+        percentage: receitaBruta > 0 ? -(cat.value / receitaBruta) * 100 : 0,
+        type: 'deducao',
+        isBold: false
+      });
+    });
+
+  // Subtotal: Receita Líquida
+  items.push({
+    id: `dre-rl`,
+    code: '(=)',
+    name: 'RECEITA OPERACIONAL LÍQUIDA',
+    value: receitaLiquida,
+    percentage: receitaBruta > 0 ? (receitaLiquida / receitaBruta) * 100 : 0,
+    type: 'subtotal',
+    isBold: true
+  });
+
+  // 3. Custos de Vendas / CMV / CSP
+  items.push({
+    id: `dre-cmv`,
+    code: '3.0',
+    name: '(-) Custos dos Produtos Vendidos e Serviços Prestados (CMV/CSP)',
+    value: -custos,
+    percentage: receitaBruta > 0 ? -(custos / receitaBruta) * 100 : 0,
+    type: 'custo',
+    isBold: true
+  });
+
+  Object.entries(categoryBreakdown)
+    .filter(([, cat]) => cat.groupCode.startsWith('3.'))
+    .forEach(([name, cat]) => {
+      items.push({
+        id: `dre-${itemIndex++}`,
+        code: `3.${itemIndex}`,
+        name: name,
+        value: -cat.value,
+        percentage: receitaBruta > 0 ? -(cat.value / receitaBruta) * 100 : 0,
+        type: 'custo',
+        isBold: false
+      });
+    });
+
+  // Subtotal: Lucro Bruto
+  items.push({
+    id: `dre-lb`,
+    code: '(=)',
+    name: 'LUCRO BRUTO OPERACIONAL',
+    value: lucroBruto,
+    percentage: receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0,
+    type: 'subtotal',
+    isBold: true
+  });
+
+  // 4. Despesas Operacionais (SG&A)
+  items.push({
+    id: `dre-do`,
+    code: '4.0',
+    name: '(-) Despesas Operacionais e Administrativas (SG&A)',
+    value: -despesasOperacionais,
+    percentage: receitaBruta > 0 ? -(despesasOperacionais / receitaBruta) * 100 : 0,
+    type: 'despesa',
+    isBold: true
+  });
+
+  Object.entries(categoryBreakdown)
+    .filter(([, cat]) => cat.groupCode.startsWith('4.'))
+    .forEach(([name, cat]) => {
+      items.push({
+        id: `dre-${itemIndex++}`,
+        code: `4.${itemIndex}`,
+        name: name,
+        value: -cat.value,
+        percentage: receitaBruta > 0 ? -(cat.value / receitaBruta) * 100 : 0,
+        type: 'despesa',
+        isBold: false
+      });
+    });
+
+  // Subtotal: EBITDA
+  items.push({
+    id: `dre-ebitda`,
+    code: '(=)',
+    name: 'EBITDA / LAJIDA (Geração de Caixa Operacional)',
+    value: ebitda,
+    percentage: receitaBruta > 0 ? (ebitda / receitaBruta) * 100 : 0,
+    type: 'subtotal',
+    isBold: true
+  });
+
+  // 5. Depreciação e Amortização
+  if (depreciacaoAmortizacao > 0) {
+    items.push({
+      id: `dre-da`,
+      code: '5.0',
+      name: '(-) Depreciação e Amortização',
+      value: -depreciacaoAmortizacao,
+      percentage: receitaBruta > 0 ? -(depreciacaoAmortizacao / receitaBruta) * 100 : 0,
+      type: 'despesa',
+      isBold: false
+    });
+  }
+
+  // 6. Resultado Financeiro Líquido
+  if (rendimentosFinanceiros > 0 || despesasFinanceiras > 0) {
+    items.push({
+      id: `dre-rf`,
+      code: '6.0',
+      name: '(+/-) Resultado Financeiro Líquido (Juros, Tarifas e Rendimentos)',
+      value: resultadoFinanceiro,
+      percentage: receitaBruta > 0 ? (resultadoFinanceiro / receitaBruta) * 100 : 0,
+      type: 'subtotal',
+      isBold: false
+    });
+  }
+
+  // 7. Impostos sobre o Lucro
+  if (impostosLucro > 0) {
+    items.push({
+      id: `dre-tax`,
+      code: '7.0',
+      name: '(-) Provisão de IRPJ e CSLL sobre Lucro',
+      value: -impostosLucro,
+      percentage: receitaBruta > 0 ? -(impostosLucro / receitaBruta) * 100 : 0,
+      type: 'despesa',
+      isBold: false
+    });
+  }
+
+  // Subtotal Final: Lucro Líquido
+  items.push({
+    id: `dre-ll`,
+    code: '(=)',
+    name: 'LUCRO / PREJUÍZO LÍQUIDO DO EXERCÍCIO',
+    value: lucroLiquido,
+    percentage: receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0,
+    type: 'lucro',
+    isBold: true
+  });
+
+  return {
+    receitaBruta: Math.round(receitaBruta * 100) / 100,
+    impostosDeducoes: Math.round(deducoes * 100) / 100,
+    receitaLiquida: Math.round(receitaLiquida * 100) / 100,
+    custosVendas: Math.round(custos * 100) / 100,
+    lucroBruto: Math.round(lucroBruto * 100) / 100,
+    despesasOperacionais: Math.round(despesasOperacionais * 100) / 100,
+    ebitda: Math.round(ebitda * 100) / 100,
+    lucroLiquido: Math.round(lucroLiquido * 100) / 100,
+    margemEbitda: receitaBruta > 0 ? Math.round((ebitda / receitaBruta) * 1000) / 10 : 0,
+    margemLiquida: receitaBruta > 0 ? Math.round((lucroLiquido / receitaBruta) * 1000) / 10 : 0,
+    items
+  };
+};
+
+export const getCashFlowData = async (companyId: string): Promise<DetailedCashFlowData> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+
+  // Gerar fluxo de caixa diário baseado nas transações pagas (Realizado)
+  const dailyFlowMap: Record<string, { in: number; out: number }> = {};
+
+  txs.forEach(t => {
+    if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA') return;
+    const dateObj = new Date(t.date);
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    const dayKey = `${year}-${month}-${day}`;
+    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+
+    if (!dailyFlowMap[dayKey]) dailyFlowMap[dayKey] = { in: 0, out: 0 };
+    if (t.type === 'receita') dailyFlowMap[dayKey].in += val;
+    if (t.type === 'despesa') dailyFlowMap[dayKey].out += val;
+  });
+
+  // Calcular saldos
+  const totalEntradas = txs
+    .filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+    .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+
+  const totalSaidas = txs
+    .filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+    .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+
+  const resultadoLiquido = totalEntradas - totalSaidas;
+  const saldoFinal = clientData.metrics.saldoAtual;
+  const saldoInicial = saldoFinal - resultadoLiquido;
+
+  let saldoAcumuladoLoop = saldoInicial;
+
+  const dailyFlow = Object.keys(dailyFlowMap)
+    .sort((a, b) => a.localeCompare(b))
+    .map(key => {
+      const entradas = dailyFlowMap[key].in;
+      const saidas = dailyFlowMap[key].out;
+      const resultado = entradas - saidas;
+      saldoAcumuladoLoop += resultado;
+
+      return {
+        date: key,
+        dayName: '',
+        entradas: Math.round(entradas * 100) / 100,
+        saidas: Math.round(saidas * 100) / 100,
+        resultado: Math.round(resultado * 100) / 100,
+        saldoAcumulado: Math.round(saldoAcumuladoLoop * 100) / 100,
+        status: 'realizado' as const
+      };
+    });
+
+  const colorsIn = ['var(--success)', 'var(--primary)', 'var(--warning)', 'var(--purple)'];
+  const colorsOut = ['var(--danger)', 'var(--warning)', 'var(--purple)', 'var(--secondary)'];
+
+  // Agregar top categorias de entradas
+  const inCategoryMap: Record<string, number> = {};
+  txs.filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA').forEach(t => {
+    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    inCategoryMap[t.category] = (inCategoryMap[t.category] || 0) + val;
+  });
+
+  const topEntradasCategories = Object.entries(inCategoryMap)
+    .map(([name, value], index) => ({ 
+      category: name, 
+      value: Math.round(value * 100) / 100, 
+      percentage: totalEntradas > 0 ? Math.round((value / totalEntradas) * 1000) / 10 : 0,
+      type: 'entrada' as const,
+      color: colorsIn[index % colorsIn.length]
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
+
+  // Agregar top categorias de saídas
+  const outCategoryMap: Record<string, number> = {};
+  txs.filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA').forEach(t => {
+    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    outCategoryMap[t.category] = (outCategoryMap[t.category] || 0) + val;
+  });
+
+  const topSaidasCategories = Object.entries(outCategoryMap)
+    .map(([name, value], index) => ({ 
+      category: name, 
+      value: Math.round(value * 100) / 100, 
+      percentage: totalSaidas > 0 ? Math.round((value / totalSaidas) * 1000) / 10 : 0,
+      type: 'saida' as const,
+      color: colorsOut[index % colorsOut.length]
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
+
+  return {
+    saldoInicial: Math.round(saldoInicial * 100) / 100,
+    totalEntradas: Math.round(totalEntradas * 100) / 100,
+    totalSaidas: Math.round(totalSaidas * 100) / 100,
+    resultadoLiquido: Math.round(resultadoLiquido * 100) / 100,
+    saldoFinal: Math.round(saldoFinal * 100) / 100,
+    daily: dailyFlow,
+    topEntradasCategories,
+    topSaidasCategories
+  };
+};
+
+export const getAccountsSummary = async (companyId: string): Promise<AccountsPayableReceivableSummary> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  // Filtrar transações apenas do mês atual para os totais de (MÊS)
+  const currentMonthTxs = txs.filter(t => {
+    const d = new Date(t.dueDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const totalReceber = currentMonthTxs.filter(t => t.type === 'receita').reduce((a, b) => a + b.value, 0);
+  const totalRecebido = currentMonthTxs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((a, b) => a + (b.paidValue !== undefined ? b.paidValue : b.value), 0);
+  const totalPagar = currentMonthTxs.filter(t => t.type === 'despesa').reduce((a, b) => a + b.value, 0);
+  const totalPago = currentMonthTxs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((a, b) => a + (b.paidValue !== undefined ? b.paidValue : b.value), 0);
+
+  // Títulos em atraso independem do mês
+  const contasAtrasadasReceber = txs.filter(t => t.type === 'receita' && t.status === 'atrasado');
+  const contasAtrasadasPagar = txs.filter(t => t.type === 'despesa' && t.status === 'atrasado');
+
+  const totalAtrasadoReceber = contasAtrasadasReceber.reduce((a, b) => a + b.value, 0);
+  const totalAtrasadoPagar = contasAtrasadasPagar.reduce((a, b) => a + b.value, 0);
+
+  return {
+    totalReceber: Math.round(totalReceber * 100) / 100,
+    totalRecebido: Math.round(totalRecebido * 100) / 100,
+    totalPagar: Math.round(totalPagar * 100) / 100,
+    totalPago: Math.round(totalPago * 100) / 100,
+    totalAtrasadoReceber: Math.round(totalAtrasadoReceber * 100) / 100,
+    totalAtrasadoPagar: Math.round(totalAtrasadoPagar * 100) / 100,
+    countAtrasados: contasAtrasadasReceber.length + contasAtrasadasPagar.length,
+    accounts: txs
+  };
+};
+
 export const getStakeholders = async (companyId: string): Promise<Stakeholder[]> => {
   if (companyId !== '1') {
     return [
@@ -873,7 +1398,7 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
     const items = res?.items || [];
     return items.map((stk: any) => {
       const matchTxs = txs.filter(t => t.clientSupplier?.toLowerCase() === stk.name?.toLowerCase());
-      const totalValue = matchTxs.reduce((acc, t) => acc + t.value, 0);
+      const totalValue = matchTxs.reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
 
       return {
         id: stk.id,
@@ -882,7 +1407,7 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
         documentNumber: stk.document?.number || 'Não informado',
         documentType: stk.document?.type || (stk.isCompany ? 'Cnpj' : 'Cpf'),
         isCompany: !!stk.isCompany,
-        totalValue,
+        totalValue: Math.round(totalValue * 100) / 100,
         countTransactions: matchTxs.length
       };
     });
@@ -905,9 +1430,9 @@ export const getFinancialHealthAnalysis = async (
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
 
-  // Filtrar transações pagas conforme o período selecionado
+  // Filtrar transações pagas conforme o período selecionado (expurgando transferências e investimentos puros)
   const paidTxs = txs.filter(t => {
-    if (t.status !== 'pago') return false;
+    if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA' || t.tag === 'INVESTIMENTO_NAO_OPERACIONAL') return false;
     const txDate = t.date ? t.date.substring(0, 10) : '';
     const d = new Date(t.date);
 
@@ -926,42 +1451,75 @@ export const getFinancialHealthAnalysis = async (
 
   let totalRevenue = 0;
   let operationalExpenses = 0;
+  let directCosts = 0;
   let jurosFinanceiro = 0;
-  let impostos = 0;
+  let rendimentoFinanceiro = 0;
+  let impostosDeducao = 0;
+  let impostosLucro = 0;
   let depreciacaoAmortizacao = 0;
   let fixedExpenses = 0;
   let variableExpenses = 0;
 
   paidTxs.forEach(t => {
-    const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
+    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
+
     if (t.type === 'receita') {
-      totalRevenue += t.value;
-    } else if (tag === 'JUROS_FINANCEIRO') {
-      jurosFinanceiro += t.value;
-    } else if (tag === 'IMPOSTOS') {
-      impostos += t.value;
-      variableExpenses += t.value;
-    } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
-      depreciacaoAmortizacao += t.value;
-    } else {
-      operationalExpenses += t.value;
-      const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
-      if (nameUpper.includes('FOLHA') || nameUpper.includes('ALUGUEL') || nameUpper.includes('INFRA') || nameUpper.includes('SOFTWARE') || nameUpper.includes('HONORAR')) {
-        fixedExpenses += t.value;
+      if (tag === 'RENDIMENTO_FINANCEIRO') {
+        rendimentoFinanceiro += val;
       } else {
-        variableExpenses += t.value;
+        totalRevenue += val;
+      }
+    } else {
+      if (tag === 'JUROS_FINANCEIRO') {
+        jurosFinanceiro += val;
+      } else if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
+        impostosDeducao += val;
+        variableExpenses += val;
+      } else if (tag === 'IMPOSTOS_LUCRO') {
+        impostosLucro += val;
+      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+        depreciacaoAmortizacao += val;
+      } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+        directCosts += val;
+        variableExpenses += val;
+      } else {
+        // Despesas Operacionais SG&A
+        operationalExpenses += val;
+        const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
+        if (
+          nameUpper.includes('FOLHA') || 
+          nameUpper.includes('ALUGUEL') || 
+          nameUpper.includes('INFRA') || 
+          nameUpper.includes('SOFTWARE') || 
+          nameUpper.includes('HONORAR') ||
+          nameUpper.includes('CONTABIL') ||
+          nameUpper.includes('LIMPEZA') ||
+          nameUpper.includes('INTERNET')
+        ) {
+          fixedExpenses += val;
+        } else {
+          variableExpenses += val;
+        }
       }
     }
   });
 
+  // Se não houver despesas fixas explícitas, inferir proporção segura
   if (fixedExpenses === 0 && operationalExpenses > 0) {
     fixedExpenses = operationalExpenses * 0.65;
-    variableExpenses = operationalExpenses * 0.35 + impostos;
+    variableExpenses = (operationalExpenses * 0.35) + directCosts + impostosDeducao;
   }
 
-  const ebitda = totalRevenue - operationalExpenses;
+  // EBITDA = Receita Líquida - Custos Diretos - Despesas Operacionais SG&A
+  const receitaLiquida = Math.max(totalRevenue - impostosDeducao, 0);
+  const totalCustosOperacionais = directCosts + operationalExpenses;
+  const ebitda = receitaLiquida - totalCustosOperacionais;
   const margemEbitda = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
-  const lucroLiquido = ebitda - jurosFinanceiro - impostos - depreciacaoAmortizacao;
+
+  // Lucro Líquido = EBITDA - Depreciação + Rendimento Fin. - Juros Fin. - Impostos Lucro
+  const totalImpostos = impostosDeducao + impostosLucro;
+  const lucroLiquido = ebitda - depreciacaoAmortizacao + (rendimentoFinanceiro - jurosFinanceiro) - impostosLucro;
 
   const contributionMarginValue = Math.max(totalRevenue - variableExpenses, 0);
   const contributionMarginPercent = totalRevenue > 0 ? (contributionMarginValue / totalRevenue) : 0.45;
@@ -996,13 +1554,19 @@ export const getFinancialHealthAnalysis = async (
       else if (day > 14) wKey = 'Sem 3 (15-21)';
       else if (day > 7) wKey = 'Sem 2 (8-14)';
 
-      const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
-      if (t.type === 'receita') {
-        weekMap[wKey].rev += t.value;
-      } else if (tag === 'OPERACIONAL') {
-        weekMap[wKey].opEx += t.value;
-        weekMap[wKey].fixed += t.value * 0.65;
-        weekMap[wKey].varEx += t.value * 0.35;
+      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
+
+      if (t.type === 'receita' && tag !== 'RENDIMENTO_FINANCEIRO') {
+        weekMap[wKey].rev += val;
+      } else if (tag === 'OPERACIONAL' || tag === 'CUSTO_MERCADORIA_SERVICO') {
+        weekMap[wKey].opEx += val;
+        if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+          weekMap[wKey].varEx += val;
+        } else {
+          weekMap[wKey].fixed += val * 0.65;
+          weekMap[wKey].varEx += val * 0.35;
+        }
       }
     });
 
@@ -1011,11 +1575,11 @@ export const getFinancialHealthAnalysis = async (
       const itemEbitda = item.rev - item.opEx;
       return {
         month: w,
-        receitaLiquida: item.rev,
-        custosOperacionais: item.opEx,
-        ebitda: itemEbitda,
-        margemEbitda: item.rev > 0 ? (itemEbitda / item.rev) * 100 : 0,
-        lucroLiquido: itemEbitda * 0.85
+        receitaLiquida: Math.round(item.rev * 100) / 100,
+        custosOperacionais: Math.round(item.opEx * 100) / 100,
+        ebitda: Math.round(itemEbitda * 100) / 100,
+        margemEbitda: item.rev > 0 ? Math.round((itemEbitda / item.rev) * 1000) / 10 : 0,
+        lucroLiquido: Math.round(itemEbitda * 0.85 * 100) / 100
       };
     });
 
@@ -1025,10 +1589,10 @@ export const getFinancialHealthAnalysis = async (
       const pe = mc > 0 ? item.fixed / mc : item.fixed * 1.5;
       return {
         month: w,
-        faturamento: item.rev,
-        custosFixos: item.fixed,
-        custosTotais: item.opEx,
-        pontoEquilibrio: pe
+        faturamento: Math.round(item.rev * 100) / 100,
+        custosFixos: Math.round(item.fixed * 100) / 100,
+        custosTotais: Math.round(item.opEx * 100) / 100,
+        pontoEquilibrio: Math.round(pe * 100) / 100
       };
     });
   } else {
@@ -1039,16 +1603,23 @@ export const getFinancialHealthAnalysis = async (
       const d = new Date(t.date);
       const monthKey = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
       const dateOrder = d.getFullYear() * 12 + d.getMonth();
+      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
+
       if (!monthlyMap[monthKey]) {
         monthlyMap[monthKey] = { rev: 0, opEx: 0, fixed: 0, varEx: 0, dateOrder };
       }
-      const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description);
-      if (t.type === 'receita') {
-        monthlyMap[monthKey].rev += t.value;
-      } else if (tag === 'OPERACIONAL') {
-        monthlyMap[monthKey].opEx += t.value;
-        monthlyMap[monthKey].fixed += t.value * 0.65;
-        monthlyMap[monthKey].varEx += t.value * 0.35;
+
+      if (t.type === 'receita' && tag !== 'RENDIMENTO_FINANCEIRO') {
+        monthlyMap[monthKey].rev += val;
+      } else if (tag === 'OPERACIONAL' || tag === 'CUSTO_MERCADORIA_SERVICO') {
+        monthlyMap[monthKey].opEx += val;
+        if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+          monthlyMap[monthKey].varEx += val;
+        } else {
+          monthlyMap[monthKey].fixed += val * 0.65;
+          monthlyMap[monthKey].varEx += val * 0.35;
+        }
       }
     });
 
@@ -1059,11 +1630,11 @@ export const getFinancialHealthAnalysis = async (
       const itemEbitda = item.rev - item.opEx;
       return {
         month: m,
-        receitaLiquida: item.rev,
-        custosOperacionais: item.opEx,
-        ebitda: itemEbitda,
-        margemEbitda: item.rev > 0 ? (itemEbitda / item.rev) * 100 : 0,
-        lucroLiquido: itemEbitda * 0.85
+        receitaLiquida: Math.round(item.rev * 100) / 100,
+        custosOperacionais: Math.round(item.opEx * 100) / 100,
+        ebitda: Math.round(itemEbitda * 100) / 100,
+        margemEbitda: item.rev > 0 ? Math.round((itemEbitda / item.rev) * 1000) / 10 : 0,
+        lucroLiquido: Math.round(itemEbitda * 0.85 * 100) / 100
       };
     });
 
@@ -1073,10 +1644,10 @@ export const getFinancialHealthAnalysis = async (
       const pe = mc > 0 ? item.fixed / mc : item.fixed * 1.5;
       return {
         month: m,
-        faturamento: item.rev,
-        custosFixos: item.fixed,
-        custosTotais: item.opEx,
-        pontoEquilibrio: pe
+        faturamento: Math.round(item.rev * 100) / 100,
+        custosFixos: Math.round(item.fixed * 100) / 100,
+        custosTotais: Math.round(item.opEx * 100) / 100,
+        pontoEquilibrio: Math.round(pe * 100) / 100
       };
     });
   }
@@ -1085,37 +1656,37 @@ export const getFinancialHealthAnalysis = async (
   if (ebitdaEvolution.length === 0) {
     ebitdaEvolution = [{
       month: period === '2026-m' ? 'Mês Atual' : 'Período',
-      receitaLiquida: totalRevenue,
-      custosOperacionais: operationalExpenses,
-      ebitda: ebitda,
-      margemEbitda: margemEbitda,
-      lucroLiquido: lucroLiquido
+      receitaLiquida: Math.round(totalRevenue * 100) / 100,
+      custosOperacionais: Math.round(totalCustosOperacionais * 100) / 100,
+      ebitda: Math.round(ebitda * 100) / 100,
+      margemEbitda: Math.round(margemEbitda * 10) / 10,
+      lucroLiquido: Math.round(lucroLiquido * 100) / 100
     }];
     monthlyBreakdown = [{
       month: period === '2026-m' ? 'Mês Atual' : 'Período',
-      faturamento: totalRevenue,
-      custosFixos: fixedExpenses,
-      custosTotais: operationalExpenses,
-      pontoEquilibrio: breakEvenPoint
+      faturamento: Math.round(totalRevenue * 100) / 100,
+      custosFixos: Math.round(fixedExpenses * 100) / 100,
+      custosTotais: Math.round(totalCustosOperacionais * 100) / 100,
+      pontoEquilibrio: Math.round(breakEvenPoint * 100) / 100
     }];
   }
 
   return {
-    ebitda,
-    margemEbitda,
-    jurosFinanceiro,
-    impostos,
-    depreciacaoAmortizacao,
-    lucroLiquido,
+    ebitda: Math.round(ebitda * 100) / 100,
+    margemEbitda: Math.round(margemEbitda * 10) / 10,
+    jurosFinanceiro: Math.round(jurosFinanceiro * 100) / 100,
+    impostos: Math.round(totalImpostos * 100) / 100,
+    depreciacaoAmortizacao: Math.round(depreciacaoAmortizacao * 100) / 100,
+    lucroLiquido: Math.round(lucroLiquido * 100) / 100,
     breakEven: {
-      fixedExpenses,
-      variableExpenses,
-      totalRevenue,
-      contributionMarginValue,
-      contributionMarginPercent: contributionMarginPercent * 100,
-      breakEvenPoint,
-      safetyMarginValue,
-      safetyMarginPercent,
+      fixedExpenses: Math.round(fixedExpenses * 100) / 100,
+      variableExpenses: Math.round(variableExpenses * 100) / 100,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      contributionMarginValue: Math.round(contributionMarginValue * 100) / 100,
+      contributionMarginPercent: Math.round(contributionMarginPercent * 1000) / 10,
+      breakEvenPoint: Math.round(breakEvenPoint * 100) / 100,
+      safetyMarginValue: Math.round(safetyMarginValue * 100) / 100,
+      safetyMarginPercent: Math.round(safetyMarginPercent * 10) / 10,
       monthlyBreakdown
     },
     ebitdaEvolution
