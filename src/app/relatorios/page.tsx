@@ -277,52 +277,80 @@ export default function RelatoriosMensaisPage() {
       </div>
 
       {/* Parecer do Especialista Gageia Gestão */}
-      <div className="card bg-gradient-to-br from-white to-purple-50 border-purple-100">
-        <div className="flex items-center gap-3 mb-4 text-purple">
-          <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center font-bold">
-            GG
+      <div className="card" style={{ padding: '2rem', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '1rem', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple border border-purple-100 flex items-center justify-center font-extrabold text-lg shadow-sm">
+              GG
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-slate-900">Parecer Técnico da Consultoria — Gageia Gestão</h3>
+              <p className="text-xs text-muted mt-0.5">Diagnóstico contábil e estratégico consolidado via Nibo Open API</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-base text-secondary">Parecer da Consultoria — Gageia Gestão</h3>
-            <p className="text-xs text-muted">Análise técnica automatizada baseada no plano contábil do Nibo</p>
+          <span className="badge badge-purple" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
+            Auditoria & Consultoria Ativa
+          </span>
+        </div>
+
+        <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+          {/* Card 1: Eficiência Operacional */}
+          <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3">
+                <CheckCircle2 size={18} className="text-emerald-600" />
+                <span>Eficiência Operacional & EBITDA</span>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                A empresa <strong className="text-slate-900">{selectedCompany.name}</strong> obteve um EBITDA realizado de <strong className="text-emerald-700">R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, atingindo uma margem operacional pura de <strong className="text-emerald-700">{health.margemEbitda.toFixed(1)}%</strong>.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-emerald-100/60 text-xs font-medium text-emerald-800">
+              ✓ Capacidade de geração de caixa aprovada
+            </div>
+          </div>
+
+          {/* Card 2: Ponto de Equilíbrio */}
+          <div className="p-5 rounded-xl border border-amber-100 bg-amber-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wider mb-3">
+                <Target size={18} className="text-amber-600" />
+                <span>Ponto de Equilíbrio & Segurança</span>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                O ponto de equilíbrio (Break-Even) necessário é de <strong className="text-amber-900">R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>. A empresa opera com <strong className="text-amber-900">{health.breakEven.safetyMarginPercent.toFixed(1)}% de Margem de Segurança</strong> acima do limiar crítico.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-amber-100/60 text-xs font-medium text-amber-800">
+              ✓ Cobertura integral de custos fixos
+            </div>
+          </div>
+
+          {/* Card 3: Recomendação Estratégica */}
+          <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/30 flex flex-col justify-between" style={{ minHeight: '180px' }}>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">
+                <ShieldCheck size={18} className="text-blue-600" />
+                <span>Diretriz & Planejamento</span>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                Recomenda-se manter o teto de despesas fixas em <strong className="text-blue-900">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> e priorizar a alocação de liquidez em contas de aplicação remunerada.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-blue-100/60 text-xs font-medium text-blue-800">
+              ✓ Planejamento orçamentário sustentável
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <div className="p-4 bg-white rounded-xl border border-gray-100">
-            <div className="flex items-center gap-2 text-xs font-bold text-success mb-2">
-              <CheckCircle2 size={16} />
-              <span>EFICIÊNCIA OPERACIONAL & EBITDA</span>
-            </div>
-            <p className="text-xs text-secondary leading-relaxed">
-              A empresa <strong className="text-primary">{selectedCompany.name}</strong> gerou um EBITDA de <strong>R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, representando uma margem de <strong>{health.margemEbitda.toFixed(1)}%</strong>. O resultado operacional demonstra sólida capacidade de geração de caixa das atividades-fim.
-            </p>
+        <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-2 text-xs text-muted">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Relatório executivo gerado via <strong>Gageia Gestão BPO Financeiro</strong></span>
           </div>
-
-          <div className="p-4 bg-white rounded-xl border border-gray-100">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-600 mb-2">
-              <Target size={16} />
-              <span>PONTO DE EQUILÍBRIO & COBERTURA</span>
-            </div>
-            <p className="text-xs text-secondary leading-relaxed">
-              O ponto de equilíbrio calculado foi de <strong>R$ {health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>. A empresa opera com uma <strong>Margem de Segurança de {health.breakEven.safetyMarginPercent.toFixed(1)}%</strong>, indicando folga operacional para absorver oscilações de mercado sem incorrer em prejuízo.
-            </p>
+          <div className="font-semibold text-purple bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
+            Assinatura Digital com Validade Fiscal
           </div>
-
-          <div className="p-4 bg-white rounded-xl border border-gray-100">
-            <div className="flex items-center gap-2 text-xs font-bold text-primary mb-2">
-              <ShieldCheck size={16} />
-              <span>RECOMENDAÇÃO ESTRATÉGICA</span>
-            </div>
-            <p className="text-xs text-secondary leading-relaxed">
-              Recomenda-se manter a vigilância sobre as despesas fixas (atualmente em R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) e priorizar investimentos com Retorno sobre o Capital Empregado (ROIC) superior à taxa de captação.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-purple-100/60 flex justify-between items-center text-[11px] text-muted">
-          <span>Relatório gerado automaticamente via integração Nibo API • <strong>Gageia Gestão BPO</strong></span>
-          <span className="font-semibold text-purple">Assinatura Digital Validade Fiscal</span>
         </div>
       </div>
     </div>
