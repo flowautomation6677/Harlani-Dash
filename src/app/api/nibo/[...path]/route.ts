@@ -5,19 +5,28 @@ import { buildCacheKey, buildStaleCacheKey, shouldCache, getTTL, CACHE_TTL } fro
 export const dynamic = 'force-dynamic';
 
 const NIBO_API_URL = process.env.NIBO_API_URL || 'https://api.nibo.com.br/empresas/v1';
-const NIBO_API_TOKEN = process.env.NIBO_API_TOKEN;
+
+function getNiboToken(companyId: string | null): string | undefined {
+  if (companyId === '2') return process.env.NIBO_API_TOKEN_CLIENT_2;
+  return process.env.NIBO_API_TOKEN;
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  if (!NIBO_API_TOKEN || NIBO_API_TOKEN === 'COLE_SEU_TOKEN_AQUI') {
+  const companyId = request.nextUrl.searchParams.get('companyId') || '1';
+  const niboToken = getNiboToken(companyId);
+
+  if (!niboToken || niboToken === 'COLE_SEU_TOKEN_AQUI') {
     return NextResponse.json({ error: 'Nibo API Token not configured.' }, { status: 500 });
   }
 
   const { path } = await params;
   const endpoint = path.join('/');
-  const query = request.nextUrl.search || '';
+  const targetParams = new URLSearchParams(request.nextUrl.searchParams);
+  targetParams.delete('companyId');
+  const query = targetParams.toString() ? `?${targetParams.toString()}` : '';
   const targetUrl = `${NIBO_API_URL}/${endpoint}${query}`;
 
   // ------------------------------------------------------------------
@@ -25,8 +34,8 @@ export async function GET(
   // Apenas endpoints financeiros sao cacheados (schedules, accounts...)
   // ------------------------------------------------------------------
   const cacheable = shouldCache(endpoint);
-  const cacheKey = buildCacheKey(endpoint, query);
-  const staleCacheKey = buildStaleCacheKey(endpoint, query);
+  const cacheKey = buildCacheKey(endpoint, query, companyId);
+  const staleCacheKey = buildStaleCacheKey(endpoint, query, companyId);
 
   if (cacheable) {
     // 1. Tentar retornar do cache (CACHE HIT)
@@ -43,7 +52,7 @@ export async function GET(
   try {
     const response = await fetch(targetUrl, {
       headers: {
-        'apitoken': NIBO_API_TOKEN,
+        'apitoken': niboToken,
         'Content-Type': 'application/json',
       },
     });

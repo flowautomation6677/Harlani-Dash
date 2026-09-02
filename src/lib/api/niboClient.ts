@@ -291,9 +291,10 @@ export interface AccountsPayableReceivableSummary {
   accounts: Transaction[];
 }
 
-export const fetchNiboData = async (endpoint: string, params?: Record<string, string>) => {
+export const fetchNiboData = async (endpoint: string, params?: Record<string, string>, companyId = '1') => {
   try {
     const url = new URL(`/api/nibo/${endpoint}`, window.location.origin);
+    url.searchParams.set('companyId', companyId);
     if (params) {
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
     }
@@ -314,7 +315,8 @@ export const fetchNiboDataPaginated = async (
   endpoint: string,
   baseParams: Record<string, string> = {},
   pageSize: number = 500,
-  maxPages: number = 20
+  maxPages: number = 20,
+  companyId = '1'
 ) => {
   let allItems: any[] = [];
   let skip = 0;
@@ -328,7 +330,7 @@ export const fetchNiboDataPaginated = async (
       '$skip': String(skip)
     };
 
-    const res = await fetchNiboData(endpoint, params);
+    const res = await fetchNiboData(endpoint, params, companyId);
     if (!res) break;
 
     const items = Array.isArray(res) ? res : (res.items || res.value || []);
@@ -358,11 +360,11 @@ export interface CategoryTreeItem {
 
 let categoryCache: Record<string, CategoryTreeItem> = {};
 
-export const getCategoryTree = async (): Promise<Record<string, CategoryTreeItem>> => {
+export const getCategoryTree = async (companyId = '1'): Promise<Record<string, CategoryTreeItem>> => {
   if (Object.keys(categoryCache).length > 0) return categoryCache;
 
   try {
-    const treeRes = await fetchNiboData('schedules/categories/tree') || await fetchNiboData('categories');
+    const treeRes = await fetchNiboData('schedules/categories/tree', undefined, companyId) || await fetchNiboData('categories', undefined, companyId);
     const items = Array.isArray(treeRes) ? treeRes : (treeRes?.items || treeRes?.value || []);
 
     const flatten = (list: any[], parent?: string) => {
@@ -660,9 +662,9 @@ export interface CostCenter {
   description: string;
 }
 
-export const getBankAccounts = async (_companyId?: string): Promise<BankAccount[]> => {
+export const getBankAccounts = async (companyId = '1'): Promise<BankAccount[]> => {
   try {
-    const res = await fetchNiboData('accounts');
+    const res = await fetchNiboData('accounts', undefined, companyId);
     const items: unknown[] = res?.items || [];
     return items
       .map((raw) => validateItem(raw, NiboBankAccountSchema, 'accounts'))
@@ -684,9 +686,9 @@ export const getBankAccounts = async (_companyId?: string): Promise<BankAccount[
   }
 };
 
-export const getCostCenters = async (_companyId?: string): Promise<CostCenter[]> => {
+export const getCostCenters = async (companyId = '1'): Promise<CostCenter[]> => {
   try {
-    const res = await fetchNiboData('costcenters');
+    const res = await fetchNiboData('costcenters', undefined, companyId);
     const items = res?.items || [];
     return items.map((cc: any) => ({
       costCenterId: cc.costCenterId,
@@ -708,7 +710,7 @@ export const getClientData = async (companyId: string) => {
 
   try {
     // 1. Carregar plano de categorias para enriquecimento
-    const categoryTree = await getCategoryTree();
+    const categoryTree = await getCategoryTree(companyId);
 
     // 2. Buscar Receitas e Despesas com Paginação OData Completa
     // Por padrão o Nibo pode filtrar pelo mês atual se não enviarmos um $filter.
@@ -722,8 +724,8 @@ export const getClientData = async (companyId: string) => {
     };
 
     const [rawCredits, rawDebits, bankAccounts] = await Promise.all([
-      fetchNiboDataPaginated('schedules/credit', odataParams),
-      fetchNiboDataPaginated('schedules/debit', odataParams),
+      fetchNiboDataPaginated('schedules/credit', odataParams, 500, 20, companyId),
+      fetchNiboDataPaginated('schedules/debit', odataParams, 500, 20, companyId),
       getBankAccounts(companyId)
     ]);
 
@@ -1398,7 +1400,7 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
   }
 
   try {
-    const res = await fetchNiboData('stakeholders');
+    const res = await fetchNiboData('stakeholders', undefined, companyId);
     const clientData = await getClientData(companyId);
     const txs = clientData.transactions;
 
