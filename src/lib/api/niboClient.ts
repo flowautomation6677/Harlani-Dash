@@ -56,6 +56,18 @@ export interface Transaction {
   source?: 'schedule' | 'statement';
 }
 
+// Nibo classifica cada categoria de crédito sob um `parent`. Só "Receitas
+// operacionais" é receita de verdade (vendas, mensalidades, gateways de
+// pagamento etc). Estornos, antecipações devolvidas e rendimentos de
+// aplicação financeira vêm com parent "Despesas operacionais e outras
+// receitas" — o próprio Nibo os trata como um abatimento de despesas no
+// relatório gerencial (DRE), não como entrada bruta. Usamos esse campo (em
+// vez de tentar adivinhar por palavra-chave na descrição) para que Entradas/
+// Saídas do app batam exatamente com o "painel realizado" exportado do Nibo.
+export function isOperatingRevenue(t: Pick<Transaction, 'type' | 'parentCategory'>): boolean {
+  return t.type === 'receita' && t.parentCategory === 'Receitas operacionais';
+}
+
 export function classifyTransactionTag(
   category: string, 
   parentCategory?: string, 
@@ -661,13 +673,19 @@ export const getClientData = async (companyId: string) => {
     mappedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // 4. Calcular Métricas Reais Baseadas nas Transações
+    // Estornos/rendimentos financeiros (receita cujo parent não é "Receitas
+    // operacionais") não entram como receita bruta — assim como no painel do
+    // Nibo, eles abatem o total de despesas em vez de inflar as entradas.
     const receitasPagas = mappedTransactions
-      .filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+      .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t))
       .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
 
     const despesasPagas = mappedTransactions
-      .filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
-      .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+      .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && (t.type === 'despesa' || !isOperatingRevenue(t)))
+      .reduce((acc, t) => {
+        const val = t.paidValue !== undefined ? t.paidValue : t.value;
+        return acc + (t.type === 'despesa' ? val : -val);
+      }, 0);
 
     const receberMes = mappedTransactions
       .filter(t => t.type === 'receita' && t.status === 'pendente')
@@ -680,14 +698,15 @@ export const getClientData = async (companyId: string) => {
     // Calcular saldo consolidado considerando saldos iniciais de contas + fluxo
     const bankOpenBalanceTotal = bankAccounts.reduce((acc, b) => acc + (b.openBalance || 0), 0);
     const saldoAtual = (bankOpenBalanceTotal > 0 ? bankOpenBalanceTotal : 0) + (receitasPagas - despesasPagas);
-    const hasReceitas = mappedTransactions.some(t => t.type === 'receita');
+    const receitaOperacionalTxCount = mappedTransactions.filter(t => isOperatingRevenue(t)).length;
+    const hasReceitas = receitaOperacionalTxCount > 0;
 
     const metrics: ClientMetrics = {
       saldoAtual: Math.round(saldoAtual * 100) / 100,
       receberMes: Math.round(receberMes * 100) / 100,
       pagarMes: Math.round(pagarMes * 100) / 100,
-      ticketMedio: hasReceitas 
-        ? Math.round((receitasPagas + receberMes) / mappedTransactions.filter(t => t.type === 'receita').length)
+      ticketMedio: hasReceitas
+        ? Math.round((receitasPagas + receberMes) / receitaOperacionalTxCount)
         : 0,
       taxaInadimplencia: 0,
       margemOperacional: receitasPagas > 0 ? Math.round(((receitasPagas - despesasPagas) / receitasPagas) * 100) : 0,
@@ -706,8 +725,13 @@ export const getClientData = async (companyId: string) => {
       if (!cashFlowMap[monthKey]) {
         cashFlowMap[monthKey] = { receitas: 0, despesas: 0, lucro: 0 };
       }
-      if (t.type === 'receita') cashFlowMap[monthKey].receitas += val;
-      if (t.type === 'despesa') cashFlowMap[monthKey].despesas += val;
+      if (t.type === 'despesa') {
+        cashFlowMap[monthKey].despesas += val;
+      } else if (isOperatingRevenue(t)) {
+        cashFlowMap[monthKey].receitas += val;
+      } else {
+        cashFlowMap[monthKey].despesas -= val;
+      }
     });
 
     const cashFlow = Object.keys(cashFlowMap).map(key => ({
@@ -770,7 +794,7 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
     const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
     if (t.type === 'receita') {
-      if (tag === 'RENDIMENTO_FINANCEIRO') {
+      if (!isOperatingRevenue(t)) {
         rendimentosFinanceiros += val;
         if (!categoryBreakdown[catName]) {
           categoryBreakdown[catName] = { value: 0, type: 'receita', groupCode: '6.1', name: `Rendimentos: ${catName}` };
@@ -1052,18 +1076,28 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
     const val = t.paidValue !== undefined ? t.paidValue : t.value;
 
     if (!dailyFlowMap[dayKey]) dailyFlowMap[dayKey] = { in: 0, out: 0 };
-    if (t.type === 'receita') dailyFlowMap[dayKey].in += val;
-    if (t.type === 'despesa') dailyFlowMap[dayKey].out += val;
+    if (t.type === 'despesa') {
+      dailyFlowMap[dayKey].out += val;
+    } else if (isOperatingRevenue(t)) {
+      dailyFlowMap[dayKey].in += val;
+    } else {
+      // Estorno/rendimento financeiro: não é receita operacional — abate as saídas,
+      // igual ao "painel realizado" do Nibo.
+      dailyFlowMap[dayKey].out -= val;
+    }
   });
 
   // Calcular saldos
   const totalEntradas = txs
-    .filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
+    .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t))
     .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
 
   const totalSaidas = txs
-    .filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA')
-    .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+    .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && !isOperatingRevenue(t))
+    .reduce((acc, t) => {
+      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      return acc + (t.type === 'despesa' ? val : -val);
+    }, 0);
 
   const resultadoLiquido = totalEntradas - totalSaidas;
   const saldoFinal = clientData.metrics.saldoAtual;
@@ -1095,7 +1129,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
 
   // Agregar top categorias de entradas
   const inCategoryMap: Record<string, number> = {};
-  txs.filter(t => t.type === 'receita' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA').forEach(t => {
+  txs.filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t)).forEach(t => {
     const val = t.paidValue !== undefined ? t.paidValue : t.value;
     inCategoryMap[t.category] = (inCategoryMap[t.category] || 0) + val;
   });
@@ -1257,7 +1291,7 @@ export const getFinancialHealthAnalysis = async (
     const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
     if (t.type === 'receita') {
-      if (tag === 'RENDIMENTO_FINANCEIRO') {
+      if (!isOperatingRevenue(t)) {
         rendimentoFinanceiro += val;
       } else {
         totalRevenue += val;
@@ -1349,8 +1383,8 @@ export const getFinancialHealthAnalysis = async (
       const val = t.paidValue !== undefined ? t.paidValue : t.value;
       const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
-      if (t.type === 'receita' && tag !== 'RENDIMENTO_FINANCEIRO') {
-        weekMap[wKey].rev += val;
+      if (t.type === 'receita') {
+        if (isOperatingRevenue(t)) weekMap[wKey].rev += val;
       } else if (tag === 'OPERACIONAL' || tag === 'CUSTO_MERCADORIA_SERVICO') {
         weekMap[wKey].opEx += val;
         if (tag === 'CUSTO_MERCADORIA_SERVICO') {
@@ -1402,8 +1436,8 @@ export const getFinancialHealthAnalysis = async (
         monthlyMap[monthKey] = { rev: 0, opEx: 0, fixed: 0, varEx: 0, dateOrder };
       }
 
-      if (t.type === 'receita' && tag !== 'RENDIMENTO_FINANCEIRO') {
-        monthlyMap[monthKey].rev += val;
+      if (t.type === 'receita') {
+        if (isOperatingRevenue(t)) monthlyMap[monthKey].rev += val;
       } else if (tag === 'OPERACIONAL' || tag === 'CUSTO_MERCADORIA_SERVICO') {
         monthlyMap[monthKey].opEx += val;
         if (tag === 'CUSTO_MERCADORIA_SERVICO') {
