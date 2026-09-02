@@ -65,10 +65,15 @@ export function classifyTransactionTag(
   const text = `${category} ${parentCategory || ''} ${description || ''}`.toUpperCase();
 
   // 1. Transferências internas entre contas
+  // Nota: NÃO usar apenas "TRANSF" como substring — "SISPAG TRANSF CC ITAU" e
+  // "PIX TRANSF <nome>" são apenas o rótulo do meio de pagamento (transferência
+  // bancária) que o Itaú/Nibo usa para qualquer pagamento/recebimento real
+  // (aluguel, pró-labore, mensalidades etc.), não uma transferência entre contas
+  // próprias. Exigir o termo completo evita excluir receita/despesa real.
   if (
-    text.includes('TRANSFERENCIA') || 
-    text.includes('TRANSF') || 
-    text.includes('APLICACAO RESGATE') || 
+    text.includes('TRANSFERENCIA') ||
+    text.includes('TRANSFERÊNCIA') ||
+    text.includes('APLICACAO RESGATE') ||
     text.includes('ENTRE CONTAS') ||
     text.includes('TRANSF.')
   ) {
