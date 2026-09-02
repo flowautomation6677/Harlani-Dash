@@ -162,11 +162,10 @@ describe('fetchNiboDataPaginated — paginacao OData', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('deve retornar array vazio quando primeira pagina retorna null (API down)', async () => {
+  it('deve lancar erro quando primeira pagina retorna null (API down), em vez de mascarar como vazio', async () => {
     vi.stubGlobal('fetch', mockFetchError(503));
 
-    const result = await fetchNiboDataPaginated('schedules/credit');
-    expect(result).toEqual([]);
+    await expect(fetchNiboDataPaginated('schedules/credit')).rejects.toThrow();
   });
 
   it('deve suportar resposta como array direto (sem wrapper items)', async () => {

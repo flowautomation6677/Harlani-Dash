@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/niboClient';
 import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { 
   Printer, 
   PieChart as PieIcon, 
@@ -56,22 +57,32 @@ export default function DREPage() {
   const [dre, setDre] = useState<DREData | null>(null);
   const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('2026-ytd');
   const [searchTerm, setSearchTerm] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     async function loadDRE() {
       setLoading(true);
-      const [dreData, healthData] = await Promise.all([
-        getDREData(selectedCompany.id, period),
-        getFinancialHealthAnalysis(selectedCompany.id, period)
-      ]);
-      setDre(dreData);
-      setHealth(healthData);
-      setLoading(false);
+      setError(null);
+      try {
+        const [dreData, healthData] = await Promise.all([
+          getDREData(selectedCompany.id, period),
+          getFinancialHealthAnalysis(selectedCompany.id, period)
+        ]);
+        setDre(dreData);
+        setHealth(healthData);
+      } catch (err) {
+        setDre(null);
+        setHealth(null);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadDRE();
-  }, [selectedCompany.id, period]);
+  }, [selectedCompany.id, period, retryCount]);
 
   const handleExport = async () => {
     try {
@@ -93,8 +104,12 @@ export default function DREPage() {
     }
   };
 
-  if (loading || !dre || !health) {
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error || !dre || !health) {
+    return <ErrorState message={error ?? undefined} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   const filteredItems = dre.items.filter(item => 

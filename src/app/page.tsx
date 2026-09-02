@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/niboClient';
 import { exportFinancialsToExcel, exportFinancialsToCSV } from '@/lib/utils/exportToExcel';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
   ArrowDownRight, 
@@ -41,7 +42,9 @@ export default function DashboardPage() {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
   // Estado do Filtro de Período
   const [period, setPeriod] = useState<'30d' | '90d' | 'year' | 'custom'>('30d');
   const [startDate, setStartDate] = useState('2026-08-01');
@@ -68,18 +71,25 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const [res, banks, cc] = await Promise.all([
-        getClientData(selectedCompany.id),
-        getBankAccounts(selectedCompany.id),
-        getCostCenters(selectedCompany.id)
-      ]);
-      setData(res);
-      setBankAccounts(banks);
-      setCostCenters(cc);
-      setLoading(false);
+      setError(null);
+      try {
+        const [res, banks, cc] = await Promise.all([
+          getClientData(selectedCompany.id),
+          getBankAccounts(selectedCompany.id),
+          getCostCenters(selectedCompany.id)
+        ]);
+        setData(res);
+        setBankAccounts(banks);
+        setCostCenters(cc);
+      } catch (err) {
+        setData(null);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, retryCount]);
 
   // -------------------------------------------------------------
   // LÓGICA DE FILTRAGEM REAL E DINÂMICA POR DATA
@@ -139,8 +149,12 @@ export default function DashboardPage() {
     };
   }, [data, period, startDate, endDate]);
 
-  if (loading || !data || !computedMetrics) {
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error || !data || !computedMetrics) {
+    return <ErrorState message={error ?? undefined} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   // Ação Exportar Excel (.xlsx)

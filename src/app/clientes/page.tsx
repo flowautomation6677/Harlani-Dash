@@ -17,11 +17,14 @@ import {
 } from 'lucide-react';
 
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function ClientesFornecedoresPage() {
   const { selectedCompany } = useCompany();
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [filterType, setFilterType] = useState<'all' | 'Customer' | 'Supplier'>('all');
   const [personFilter, setPersonFilter] = useState<'all' | 'pj' | 'pf'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,12 +32,19 @@ export default function ClientesFornecedoresPage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const res = await getStakeholders(selectedCompany.id);
-      setStakeholders(res);
-      setLoading(false);
+      setError(null);
+      try {
+        const res = await getStakeholders(selectedCompany.id);
+        setStakeholders(res);
+      } catch (err) {
+        setStakeholders([]);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, retryCount]);
 
   const filteredList = useMemo(() => {
     return stakeholders.filter(stk => {
@@ -72,6 +82,10 @@ export default function ClientesFornecedoresPage() {
 
   if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return <ErrorState message={error} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   return (

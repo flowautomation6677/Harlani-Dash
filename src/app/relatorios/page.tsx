@@ -11,6 +11,7 @@ import { exportFinancialsToExcel } from '@/lib/utils/exportToExcel';
 import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
 import { BreakEvenLineChart } from '@/components/charts/BreakEvenLineChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { 
   FileText, 
   Printer, 
@@ -28,6 +29,8 @@ export default function RelatoriosMensaisPage() {
   const { selectedCompany } = useCompany();
   const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState('2026-m');
   const [customStartDate, setCustomStartDate] = useState('2026-08-01');
   const [customEndDate, setCustomEndDate] = useState('2026-08-31');
@@ -38,20 +41,31 @@ export default function RelatoriosMensaisPage() {
   useEffect(() => {
     async function loadReport() {
       setLoading(true);
-      const data = await getFinancialHealthAnalysis(
-        selectedCompany.id, 
-        selectedMonth,
-        customStartDate,
-        customEndDate
-      );
-      setHealth(data);
-      setLoading(false);
+      setError(null);
+      try {
+        const data = await getFinancialHealthAnalysis(
+          selectedCompany.id,
+          selectedMonth,
+          customStartDate,
+          customEndDate
+        );
+        setHealth(data);
+      } catch (err) {
+        setHealth(null);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadReport();
-  }, [selectedCompany.id, selectedMonth, customStartDate, customEndDate]);
+  }, [selectedCompany.id, selectedMonth, customStartDate, customEndDate, retryCount]);
 
-  if (loading || !health) {
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error || !health) {
+    return <ErrorState message={error ?? undefined} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   const handleExportExcel = async () => {

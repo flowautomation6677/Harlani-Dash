@@ -5,6 +5,7 @@ import { useCompany } from '@/context/CompanyContext';
 import { getCashFlowData, DetailedCashFlowData } from '@/lib/api/niboClient';
 import { CashFlowBarChart } from '@/components/charts/CashFlowBarChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { 
   DollarSign, 
   ArrowUpRight, 
@@ -19,17 +20,26 @@ export default function FluxoDeCaixaPage() {
   const { selectedCompany } = useCompany();
   const [dfc, setDfc] = useState<DetailedCashFlowData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('diario');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     async function loadDFC() {
       setLoading(true);
-      const data = await getCashFlowData(selectedCompany.id);
-      setDfc(data);
-      setLoading(false);
+      setError(null);
+      try {
+        const data = await getCashFlowData(selectedCompany.id);
+        setDfc(data);
+      } catch (err) {
+        setDfc(null);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadDFC();
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, retryCount]);
 
   const filteredData = useMemo(() => {
     if (!dfc) return [];
@@ -76,8 +86,12 @@ export default function FluxoDeCaixaPage() {
     return Object.keys(grouped).sort((a, b) => a.localeCompare(b)).map(k => grouped[k]);
   }, [dfc, period]);
 
-  if (loading || !dfc) {
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error || !dfc) {
+    return <ErrorState message={error ?? undefined} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   const handleExport = async () => {

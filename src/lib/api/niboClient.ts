@@ -331,7 +331,9 @@ export const fetchNiboDataPaginated = async (
     };
 
     const res = await fetchNiboData(endpoint, params, companyId);
-    if (!res) break;
+    if (!res) {
+      throw new Error(`Falha ao buscar dados reais do Nibo em "${endpoint}". Verifique o token/URL configurados.`);
+    }
 
     const items = Array.isArray(res) ? res : (res.items || res.value || []);
     if (items.length > 0) {
@@ -395,237 +397,6 @@ export const getCategoryTree = async (companyId = '1'): Promise<Record<string, C
   }
 
   return categoryCache;
-};
-
-const CLIENT_DATA_MOCK: Record<string, { 
-  metrics: ClientMetrics; 
-  cashFlow: any[]; 
-  transactions: Transaction[]; 
-  dre: DREData;
-  dfc: DetailedCashFlowData;
-  accountsSummary: AccountsPayableReceivableSummary;
-}> = {
-  '1': {
-    metrics: {
-      saldoAtual: 148520.45,
-      receberMes: 42100.00,
-      pagarMes: 18450.30,
-      ticketMedio: 4500.00,
-      taxaInadimplencia: 2.1,
-      margemOperacional: 34.5,
-      previsao30dias: 172170.15
-    },
-    cashFlow: [
-      { name: 'Jan', receitas: 38000, despesas: 22000, lucro: 16000 },
-      { name: 'Fev', receitas: 42000, despesas: 21000, lucro: 21000 },
-      { name: 'Mar', receitas: 45000, despesas: 24000, lucro: 21000 },
-      { name: 'Abr', receitas: 41000, despesas: 19500, lucro: 21500 },
-      { name: 'Mai', receitas: 49000, despesas: 23000, lucro: 26000 },
-      { name: 'Jun', receitas: 52000, despesas: 24500, lucro: 27500 }
-    ],
-    transactions: [
-      { id: '101', description: 'Assinatura Plataforma Enterprise', value: 12500.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'receita', status: 'pago', category: 'SaaS Subscriptions', clientSupplier: 'TechCorp Brasil', documentNumber: 'NF-8921' },
-      { id: '102', description: 'Servidor AWS Cloud Services', value: 3420.50, date: '2026-08-22', dueDate: '2026-08-22', type: 'despesa', status: 'pago', category: 'Infraestrutura TI', clientSupplier: 'Amazon Web Services', documentNumber: 'INV-40912' },
-      { id: '103', description: 'Consultoria de Software B2B', value: 8900.00, date: '2026-08-20', dueDate: '2026-08-28', type: 'receita', status: 'pendente', category: 'Serviços Profissionais', clientSupplier: 'Fintech Soluções', documentNumber: 'NF-8945' },
-      { id: '104', description: 'Folha de Pagamento Equipe Dev', value: 15100.00, date: '2026-08-15', dueDate: '2026-08-30', type: 'despesa', status: 'pendente', category: 'Recursos Humanos', clientSupplier: 'Equipe Interna', documentNumber: 'FOL-0826' },
-      { id: '105', description: 'Licenças de Ferramentas de Design', value: 450.00, date: '2026-08-15', dueDate: '2026-08-15', type: 'despesa', status: 'pago', category: 'Softwares', clientSupplier: 'Figma Inc', documentNumber: 'REC-9012' },
-      { id: '106', description: 'Manutenção Servidor Dedicado', value: 1200.00, date: '2026-08-10', dueDate: '2026-08-18', type: 'despesa', status: 'atrasado', category: 'Infraestrutura TI', clientSupplier: 'Locaweb Hospedagem', documentNumber: 'FAT-3310' },
-      { id: '107', description: 'Licenciamento Anual Cliente Y', value: 18500.00, date: '2026-08-01', dueDate: '2026-08-12', type: 'receita', status: 'atrasado', category: 'SaaS Subscriptions', clientSupplier: 'Grupo Varejo Soluções', documentNumber: 'NF-8801' }
-    ],
-    dre: {
-      receitaBruta: 267000.00,
-      impostosDeducoes: 16020.00,
-      receitaLiquida: 250980.00,
-      custosVendas: 65000.00,
-      lucroBruto: 185980.00,
-      despesasOperacionais: 93870.00,
-      ebitda: 92110.00,
-      lucroLiquido: 86598.00,
-      margemEbitda: 36.7,
-      margemLiquida: 32.4,
-      items: []
-    },
-    dfc: {
-      saldoInicial: 124870.75,
-      totalEntradas: 52000.00,
-      totalSaidas: 28350.30,
-      resultadoLiquido: 23649.70,
-      saldoFinal: 148520.45,
-      daily: [],
-      topEntradasCategories: [],
-      topSaidasCategories: []
-    },
-    accountsSummary: {
-      totalReceber: 39900.00,
-      totalRecebido: 31000.00,
-      totalPagar: 20170.50,
-      totalPago: 3870.50,
-      totalAtrasadoReceber: 18500.00,
-      totalAtrasadoPagar: 1200.00,
-      countAtrasados: 2,
-      accounts: [
-        { id: '101', description: 'Assinatura Plataforma Enterprise', value: 12500.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'receita', status: 'pago', category: 'SaaS Subscriptions', clientSupplier: 'TechCorp Brasil', documentNumber: 'NF-8921' },
-        { id: '102', description: 'Servidor AWS Cloud Services', value: 3420.50, date: '2026-08-22', dueDate: '2026-08-22', type: 'despesa', status: 'pago', category: 'Infraestrutura TI', clientSupplier: 'Amazon Web Services', documentNumber: 'INV-40912' },
-        { id: '103', description: 'Consultoria de Software B2B', value: 8900.00, date: '2026-08-20', dueDate: '2026-08-28', type: 'receita', status: 'pendente', category: 'Serviços Profissionais', clientSupplier: 'Fintech Soluções', documentNumber: 'NF-8945' },
-        { id: '104', description: 'Folha de Pagamento Equipe Dev', value: 15100.00, date: '2026-08-15', dueDate: '2026-08-30', type: 'despesa', status: 'pendente', category: 'Recursos Humanos', clientSupplier: 'Equipe Interna', documentNumber: 'FOL-0826' },
-        { id: '105', description: 'Licenças de Ferramentas de Design', value: 450.00, date: '2026-08-15', dueDate: '2026-08-15', type: 'despesa', status: 'pago', category: 'Softwares', clientSupplier: 'Figma Inc', documentNumber: 'REC-9012' },
-        { id: '106', description: 'Manutenção Servidor Dedicado', value: 1200.00, date: '2026-08-10', dueDate: '2026-08-18', type: 'despesa', status: 'atrasado', category: 'Infraestrutura TI', clientSupplier: 'Locaweb Hospedagem', documentNumber: 'FAT-3310' },
-        { id: '107', description: 'Licenciamento Anual Cliente Y', value: 18500.00, date: '2026-08-01', dueDate: '2026-08-12', type: 'receita', status: 'atrasado', category: 'SaaS Subscriptions', clientSupplier: 'Grupo Varejo Soluções', documentNumber: 'NF-8801' }
-      ]
-    }
-  },
-  '2': {
-    metrics: {
-      saldoAtual: 312890.10,
-      receberMes: 98500.00,
-      pagarMes: 74200.00,
-      ticketMedio: 12800.00,
-      taxaInadimplencia: 4.8,
-      margemOperacional: 19.2,
-      previsao30dias: 337190.10
-    },
-    cashFlow: [
-      { name: 'Mai', receitas: 145000, despesas: 115000, lucro: 30000 },
-      { name: 'Jun', receitas: 138000, despesas: 121000, lucro: 17000 },
-      { name: 'Jul', receitas: 152000, despesas: 110000, lucro: 42000 },
-      { name: 'Ago', receitas: 160000, despesas: 118000, lucro: 42000 }
-    ],
-    transactions: [
-      { id: '201', description: 'Frete Carga Pesada SP -> RJ', value: 24500.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'receita', status: 'pago', category: 'Transporte Rodoviário', clientSupplier: 'Atacadão Alimentos', documentNumber: 'CTE-1049' },
-      { id: '202', description: 'Combustível Frota Diesel', value: 18400.00, date: '2026-08-23', dueDate: '2026-08-23', type: 'despesa', status: 'pago', category: 'Manutenção Frota', clientSupplier: 'Postos Shell', documentNumber: 'NF-9921' },
-      { id: '203', description: 'Manutenção Preventiva Caminhões', value: 6800.00, date: '2026-08-10', dueDate: '2026-08-21', type: 'despesa', status: 'atrasado', category: 'Oficina & Peças', clientSupplier: 'Mercedes-Benz peças', documentNumber: 'FAT-7712' },
-      { id: '204', description: 'Logística de Distribuição Centro-Oeste', value: 31000.00, date: '2026-08-20', dueDate: '2026-08-27', type: 'receita', status: 'pendente', category: 'Logística B2B', clientSupplier: 'Magazord Comercio', documentNumber: 'CTE-1080' }
-    ],
-    dre: {
-      receitaBruta: 890000.00,
-      impostosDeducoes: 80100.00,
-      receitaLiquida: 809900.00,
-      custosVendas: 410000.00,
-      lucroBruto: 399900.00,
-      despesasOperacionais: 150000.00,
-      ebitda: 249900.00,
-      lucroLiquido: 210000.00,
-      margemEbitda: 30.8,
-      margemLiquida: 25.9,
-      items: [
-        { id: 'd2-1', code: '1', name: 'Receita Operacional Bruta', value: 890000, percentage: 100, type: 'receita', isBold: true },
-        { id: 'd2-2', code: '1.1', name: 'Serviços de Transporte Rodoviário', value: 750000, percentage: 84.2, type: 'receita' },
-        { id: 'd2-3', code: '1.2', name: 'Logística e Armazenagem', value: 140000, percentage: 15.8, type: 'receita' },
-        { id: 'd2-4', code: '2', name: 'Deduções e Impostos', value: -80100, percentage: 9.0, type: 'deducao', isBold: true }
-      ]
-    },
-    dfc: {
-      saldoInicial: 280000.00,
-      totalEntradas: 150000.00,
-      totalSaidas: 117109.90,
-      resultadoLiquido: 32890.10,
-      saldoFinal: 312890.10,
-      daily: [
-        { date: '2026-08-22', dayName: 'Sex', entradas: 40000, saidas: 20000, resultado: 20000, saldoAcumulado: 300000, status: 'realizado' },
-        { date: '2026-08-23', dayName: 'Sáb', entradas: 15000, saidas: 18400, resultado: -3400, saldoAcumulado: 296600, status: 'realizado' },
-        { date: '2026-08-24', dayName: 'Dom', entradas: 24500, saidas: 0, resultado: 24500, saldoAcumulado: 321100, status: 'realizado' },
-        { date: '2026-08-25', dayName: 'Seg', entradas: 0, saidas: 8209.90, resultado: -8209.90, saldoAcumulado: 312890.10, status: 'projetado' }
-      ],
-      topEntradasCategories: [
-        { category: 'Frete B2B', value: 120000, percentage: 80, type: 'entrada', color: 'var(--success)' },
-        { category: 'Armazenagem', value: 30000, percentage: 20, type: 'entrada', color: 'var(--primary)' }
-      ],
-      topSaidasCategories: [
-        { category: 'Combustível', value: 50000, percentage: 42.6, type: 'saida', color: 'var(--danger)' },
-        { category: 'Manutenção', value: 25000, percentage: 21.3, type: 'saida', color: 'var(--warning)' },
-        { category: 'Folha Pagto', value: 42109.90, percentage: 36.1, type: 'saida', color: 'var(--purple)' }
-      ]
-    },
-    accountsSummary: {
-      totalReceber: 98500.00,
-      totalRecebido: 55000.00,
-      totalPagar: 74200.00,
-      totalPago: 49000.00,
-      totalAtrasadoReceber: 12500.00,
-      totalAtrasadoPagar: 6800.00,
-      countAtrasados: 3,
-      accounts: [
-        { id: '201', description: 'Frete Carga Pesada SP -> RJ', value: 24500.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'receita', status: 'pago', category: 'Transporte Rodoviário', clientSupplier: 'Atacadão Alimentos', documentNumber: 'CTE-1049' },
-        { id: '202', description: 'Combustível Frota Diesel', value: 18400.00, date: '2026-08-23', dueDate: '2026-08-23', type: 'despesa', status: 'pago', category: 'Manutenção Frota', clientSupplier: 'Postos Shell', documentNumber: 'NF-9921' },
-        { id: '203', description: 'Manutenção Preventiva Caminhões', value: 6800.00, date: '2026-08-10', dueDate: '2026-08-21', type: 'despesa', status: 'atrasado', category: 'Oficina & Peças', clientSupplier: 'Mercedes-Benz peças', documentNumber: 'FAT-7712' },
-        { id: '204', description: 'Logística de Distribuição Centro-Oeste', value: 31000.00, date: '2026-08-20', dueDate: '2026-08-27', type: 'receita', status: 'pendente', category: 'Logística B2B', clientSupplier: 'Magazord Comercio', documentNumber: 'CTE-1080' }
-      ]
-    }
-  },
-  '3': {
-    metrics: {
-      saldoAtual: 84120.00,
-      receberMes: 31400.00,
-      pagarMes: 29800.00,
-      ticketMedio: 380.00,
-      taxaInadimplencia: 1.2,
-      margemOperacional: 14.8,
-      previsao30dias: 85720.00
-    },
-    cashFlow: [
-      { name: 'Mai', receitas: 85000, despesas: 72000, lucro: 13000 },
-      { name: 'Jun', receitas: 91000, despesas: 78000, lucro: 13000 },
-      { name: 'Jul', receitas: 88000, despesas: 74000, lucro: 14000 },
-      { name: 'Ago', receitas: 94000, despesas: 79000, lucro: 15000 }
-    ],
-    transactions: [
-      { id: '301', description: 'Reposição de Estoque Primavera', value: 14200.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'despesa', status: 'pago', category: 'Fornecedores Estoque', clientSupplier: 'Confecções Sul', documentNumber: 'NF-4410' },
-      { id: '302', description: 'Vendas Loja Física + E-commerce', value: 9800.00, date: '2026-08-23', dueDate: '2026-08-23', type: 'receita', status: 'pago', category: 'Vendas Varejo', clientSupplier: 'Clientes Diversos', documentNumber: 'SAT-9901' },
-      { id: '303', description: 'Taxas Adquirentes de Cartão', value: 1250.00, date: '2026-08-22', dueDate: '2026-08-22', type: 'despesa', status: 'pago', category: 'Tarifas Bancárias', clientSupplier: 'Stone Pagamentos', documentNumber: 'EXT-8812' }
-    ],
-    dre: {
-      receitaBruta: 358000.00,
-      impostosDeducoes: 21480.00,
-      receitaLiquida: 336520.00,
-      custosVendas: 160000.00,
-      lucroBruto: 176520.00,
-      despesasOperacionais: 95000.00,
-      ebitda: 81520.00,
-      lucroLiquido: 68000.00,
-      margemEbitda: 24.2,
-      margemLiquida: 20.2,
-      items: [
-        { id: 'd3-1', code: '1', name: 'Receita Bruta Varejo', value: 358000, percentage: 100, type: 'receita', isBold: true },
-        { id: 'd3-2', code: '2', name: 'Devoluções e Impostos', value: -21480, percentage: 6.0, type: 'deducao', isBold: true },
-        { id: 'd3-3', code: '3', name: 'Receita Líquida', value: 336520, percentage: 94.0, type: 'subtotal', isBold: true },
-        { id: 'd3-4', code: '4', name: 'CMV', value: -160000, percentage: 44.7, type: 'custo', isBold: true }
-      ]
-    },
-    dfc: {
-      saldoInicial: 60000.00,
-      totalEntradas: 64000.00,
-      totalSaidas: 39880.00,
-      resultadoLiquido: 24120.00,
-      saldoFinal: 84120.00,
-      daily: [
-        { date: '2026-08-22', dayName: 'Sex', entradas: 12000, saidas: 1250, resultado: 10750, saldoAcumulado: 70750, status: 'realizado' },
-        { date: '2026-08-23', dayName: 'Sáb', entradas: 9800, saidas: 2230, resultado: 7570, saldoAcumulado: 78320, status: 'realizado' },
-        { date: '2026-08-24', dayName: 'Dom', entradas: 20000, saidas: 14200, resultado: 5800, saldoAcumulado: 84120, status: 'realizado' }
-      ],
-      topEntradasCategories: [
-        { category: 'Varejo Físico', value: 40000, percentage: 62.5, type: 'entrada', color: 'var(--success)' },
-        { category: 'E-commerce', value: 24000, percentage: 37.5, type: 'entrada', color: 'var(--primary)' }
-      ],
-      topSaidasCategories: [
-        { category: 'Fornecedores', value: 20000, percentage: 50.1, type: 'saida', color: 'var(--danger)' },
-        { category: 'Marketing', value: 10000, percentage: 25.0, type: 'saida', color: 'var(--warning)' },
-        { category: 'Folha', value: 9880, percentage: 24.9, type: 'saida', color: 'var(--purple)' }
-      ]
-    },
-    accountsSummary: {
-      totalReceber: 31400.00,
-      totalRecebido: 21600.00,
-      totalPagar: 29800.00,
-      totalPago: 15400.00,
-      totalAtrasadoReceber: 0,
-      totalAtrasadoPagar: 0,
-      countAtrasados: 0,
-      accounts: [
-        { id: '301', description: 'Reposição de Estoque Primavera', value: 14200.00, date: '2026-08-24', dueDate: '2026-08-24', type: 'despesa', status: 'pago', category: 'Fornecedores Estoque', clientSupplier: 'Confecções Sul', documentNumber: 'NF-4410' },
-        { id: '303', description: 'Taxas Adquirentes de Cartão', value: 1250.00, date: '2026-08-22', dueDate: '2026-08-22', type: 'despesa', status: 'pago', category: 'Tarifas Bancárias', clientSupplier: 'Stone Pagamentos', documentNumber: 'EXT-8812' }
-      ]
-    }
-  }
 };
 
 // ============================================================================
@@ -933,12 +704,14 @@ export const getClientData = async (companyId: string) => {
 
     return {
       metrics,
-      cashFlow: cashFlow.length > 0 ? cashFlow : CLIENT_DATA_MOCK['1'].cashFlow,
-      transactions: mappedTransactions.length > 0 ? mappedTransactions : CLIENT_DATA_MOCK['1'].transactions,
+      cashFlow,
+      transactions: mappedTransactions,
     };
   } catch (error) {
-    console.error('Falha ao processar dados da API Real Nibo. Caindo para Mock.', error);
-    return CLIENT_DATA_MOCK['1'];
+    console.error('Falha ao carregar dados da API Nibo.', error);
+    throw error instanceof Error
+      ? error
+      : new Error('Falha ao carregar dados da API Nibo.');
   }
 };
 
@@ -1392,13 +1165,6 @@ export const getAccountsSummary = async (companyId: string): Promise<AccountsPay
 };
 
 export const getStakeholders = async (companyId: string): Promise<Stakeholder[]> => {
-  if (companyId !== '1') {
-    return [
-      { id: 's1', name: 'Atacadão Alimentos LTDA', type: 'Customer', documentNumber: '11.222.333/0001-44', documentType: 'Cnpj', isCompany: true, totalValue: 180000, countTransactions: 12 },
-      { id: 's2', name: 'Postos Shell Combustíveis', type: 'Supplier', documentNumber: '22.333.444/0001-55', documentType: 'Cnpj', isCompany: true, totalValue: 95000, countTransactions: 24 }
-    ];
-  }
-
   try {
     const res = await fetchNiboData('stakeholders', undefined, companyId);
     const clientData = await getClientData(companyId);
@@ -1422,7 +1188,9 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
     });
   } catch (error) {
     console.error('Erro ao buscar clientes e fornecedores Nibo:', error);
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error('Erro ao buscar clientes e fornecedores Nibo.');
   }
 };
 

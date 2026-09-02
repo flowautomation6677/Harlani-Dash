@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 function getStatusBadgeConfig(status: string) {
   if (status === 'pago') {
@@ -31,7 +32,9 @@ export default function ContasPage() {
   const { selectedCompany } = useCompany();
   const [data, setData] = useState<AccountsPayableReceivableSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
   // Filtros
   const [typeFilter, setTypeFilter] = useState<'all' | 'receita' | 'despesa'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pago' | 'pendente' | 'atrasado'>('all');
@@ -40,15 +43,26 @@ export default function ContasPage() {
   useEffect(() => {
     async function loadAccounts() {
       setLoading(true);
-      const res = await getAccountsSummary(selectedCompany.id);
-      setData(res);
-      setLoading(false);
+      setError(null);
+      try {
+        const res = await getAccountsSummary(selectedCompany.id);
+        setData(res);
+      } catch (err) {
+        setData(null);
+        setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadAccounts();
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, retryCount]);
 
-  if (loading || !data) {
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (error || !data) {
+    return <ErrorState message={error ?? undefined} onRetry={() => setRetryCount(c => c + 1)} />;
   }
 
   // Filtrar lista
