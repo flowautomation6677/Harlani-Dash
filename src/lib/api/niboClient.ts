@@ -8,6 +8,16 @@ import {
   type NiboDebitSchedule,
 } from '@/lib/api/niboSchemas';
 
+// `new Date('YYYY-MM-DD')` parses the string as UTC midnight; reading it back with
+// local getters (getDate/getMonth/getFullYear) then shifts it a day backward in any
+// timezone behind UTC (e.g. Brazil), which misattributes day-1-of-month transactions
+// to the last day of the previous month. Parsing the Y/M/D components directly into
+// a local Date avoids that round-trip entirely.
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export type TransactionType = 'receita' | 'despesa';
 export type TransactionStatus = 'pago' | 'pendente' | 'atrasado';
 export type DREItemType = 'receita' | 'deducao' | 'subtotal' | 'custo' | 'despesa' | 'lucro';
@@ -684,7 +694,7 @@ export const getClientData = async (companyId: string) => {
 
     mappedTransactions.forEach(t => {
       if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA') return;
-      const dateObj = new Date(t.date);
+      const dateObj = parseLocalDate(t.date);
       const monthKey = dateObj.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
       const val = t.paidValue !== undefined ? t.paidValue : t.value;
 
@@ -727,7 +737,7 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
   const paidTxs = txs.filter(t => {
     if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA' || t.tag === 'INVESTIMENTO_NAO_OPERACIONAL') return false;
 
-    const d = new Date(t.date);
+    const d = parseLocalDate(t.date);
     if (period === '2026-m') {
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     } else if (period === '2026-q') {
@@ -1029,7 +1039,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
 
   txs.forEach(t => {
     if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA') return;
-    const dateObj = new Date(t.date);
+    const dateObj = parseLocalDate(t.date);
     const day = String(dateObj.getDate()).padStart(2, '0');
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const year = dateObj.getFullYear();
@@ -1136,7 +1146,7 @@ export const getAccountsSummary = async (companyId: string): Promise<AccountsPay
 
   // Filtrar transações apenas do mês atual para os totais de (MÊS)
   const currentMonthTxs = txs.filter(t => {
-    const d = new Date(t.dueDate);
+    const d = parseLocalDate(t.dueDate);
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 
@@ -1211,7 +1221,7 @@ export const getFinancialHealthAnalysis = async (
   const paidTxs = txs.filter(t => {
     if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA' || t.tag === 'INVESTIMENTO_NAO_OPERACIONAL') return false;
     const txDate = t.date ? t.date.substring(0, 10) : '';
-    const d = new Date(t.date);
+    const d = parseLocalDate(t.date);
 
     if (period === 'custom' && customStartDate && customEndDate) {
       return txDate >= customStartDate && txDate <= customEndDate;
@@ -1323,7 +1333,7 @@ export const getFinancialHealthAnalysis = async (
     };
 
     paidTxs.forEach(t => {
-      const d = new Date(t.date);
+      const d = parseLocalDate(t.date);
       const day = d.getDate();
       let wKey = 'Sem 1 (1-7)';
       if (day > 28) wKey = 'Sem 5 (29+)';
@@ -1377,7 +1387,7 @@ export const getFinancialHealthAnalysis = async (
     const monthlyMap: Record<string, { rev: number; opEx: number; fixed: number; varEx: number; dateOrder: number }> = {};
 
     paidTxs.forEach(t => {
-      const d = new Date(t.date);
+      const d = parseLocalDate(t.date);
       const monthKey = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
       const dateOrder = d.getFullYear() * 12 + d.getMonth();
       const val = t.paidValue !== undefined ? t.paidValue : t.value;

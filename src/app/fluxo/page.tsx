@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { getCashFlowData, DetailedCashFlowData } from '@/lib/api/niboClient';
+import { getCashFlowData, DetailedCashFlowData, parseLocalDate } from '@/lib/api/niboClient';
 import { CashFlowBarChart } from '@/components/charts/CashFlowBarChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -48,7 +48,7 @@ export default function FluxoDeCaixaPage() {
     const grouped: Record<string, any> = {};
 
     dfc.daily.forEach(item => {
-      const d = new Date(item.date);
+      const d = parseLocalDate(item.date);
       let key = '';
       let displayLabel = '';
 
