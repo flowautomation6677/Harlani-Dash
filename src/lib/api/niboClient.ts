@@ -516,8 +516,14 @@ export const getClientData = async (companyId: string) => {
     const startDate = `${currentYear}-01-01T00:00:00Z`;
     // API do Nibo utiliza padrão OData v4, logo DateTimeOffset não leva aspas
     // Obrigatório incluir $orderby quando usamos $skip e $filter juntos (limitação do Entity Framework OData)
+    //
+    // Importante: filtrar só por "dueDate >= inicio do ano" deixa pra tras
+    // lancamentos antigos que ainda estao em aberto (isPaid=false) - eles
+    // somem da tela assim que o ano vira, mesmo que o cliente ainda deva.
+    // Por isso trazemos tambem qualquer registro nao pago, independente da
+    // data (filtro validado direto contra a API real do Nibo em 03/09/2026).
     const odataParams = { 
-      '$filter': `dueDate ge ${startDate}`,
+      '$filter': `(dueDate ge ${startDate}) or (isPaid eq false)`,
       '$orderby': 'dueDate desc'
     };
 

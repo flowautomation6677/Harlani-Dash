@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dados de validação Nibo (info financeira real, não versionar)
+/scripts/validate-nibo/output/

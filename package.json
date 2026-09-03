@@ -11,7 +11,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "validate:nibo:live": "node --env-file=.env.local scripts/validate-nibo/fetch-nibo-live.mjs",
+    "validate:nibo:app": "node scripts/validate-nibo/fetch-app-proxy.mjs",
+    "validate:nibo:compare": "node scripts/validate-nibo/compare.mjs",
+    "validate:nibo": "npm run validate:nibo:live && npm run validate:nibo:app && npm run validate:nibo:compare"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.2",
