@@ -149,9 +149,9 @@ async function main() {
   console.log(`  A Receber — Nibo ao vivo: R$ ${summary.totals.liveOpenValueCredit.toFixed(2)} | App: R$ ${summary.totals.proxyOpenValueCredit.toFixed(2)}`);
   console.log(`  A Pagar   — Nibo ao vivo: R$ ${summary.totals.liveOpenValueDebit.toFixed(2)} | App: R$ ${summary.totals.proxyOpenValueDebit.toFixed(2)}`);
   console.log('');
-  const cacheStatuses = [...(proxy.cacheStatus?.credit || []), ...(proxy.cacheStatus?.debit || [])];
-  const hadStale = cacheStatuses.includes('STALE');
-  const hadHit = cacheStatuses.includes('HIT');
+  const cacheStatuses = new Set([...(proxy.cacheStatus?.credit || []), ...(proxy.cacheStatus?.debit || [])]);
+  const hadStale = cacheStatuses.has('STALE');
+  const hadHit = cacheStatuses.has('HIT');
   if (hadStale) console.log('⚠️  O app serviu dado STALE (Nibo indisponível no momento da consulta) em pelo menos uma página.');
   else if (hadHit) console.log('ℹ️  O app serviu pelo menos uma página do cache (HIT) — pode ter até 4h de defasagem em relação ao Nibo.');
   else console.log('✅ Nenhuma página veio do cache (tudo MISS) — os dados do app foram buscados ao vivo do Nibo nesta consulta.');
@@ -159,7 +159,9 @@ async function main() {
   console.log(`Relatório completo salvo em: ${reportPath}`);
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   console.error('Falhou:', err.message);
   process.exit(1);
-});
+}

@@ -684,12 +684,12 @@ export const getClientData = async (companyId: string) => {
     // Nibo, eles abatem o total de despesas em vez de inflar as entradas.
     const receitasPagas = mappedTransactions
       .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t))
-      .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+      .reduce((acc, t) => acc + (t.paidValue ?? t.value), 0);
 
     const despesasPagas = mappedTransactions
       .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && (t.type === 'despesa' || !isOperatingRevenue(t)))
       .reduce((acc, t) => {
-        const val = t.paidValue !== undefined ? t.paidValue : t.value;
+        const val = t.paidValue ?? t.value;
         return acc + (t.type === 'despesa' ? val : -val);
       }, 0);
 
@@ -703,7 +703,7 @@ export const getClientData = async (companyId: string) => {
 
     // Calcular saldo consolidado considerando saldos iniciais de contas + fluxo
     const bankOpenBalanceTotal = bankAccounts.reduce((acc, b) => acc + (b.openBalance || 0), 0);
-    const saldoAtual = (bankOpenBalanceTotal > 0 ? bankOpenBalanceTotal : 0) + (receitasPagas - despesasPagas);
+    const saldoAtual = Math.max(0, bankOpenBalanceTotal) + (receitasPagas - despesasPagas);
     const receitaOperacionalTxCount = mappedTransactions.filter(t => isOperatingRevenue(t)).length;
     const hasReceitas = receitaOperacionalTxCount > 0;
 
@@ -726,7 +726,7 @@ export const getClientData = async (companyId: string) => {
       if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA') return;
       const dateObj = parseLocalDate(t.date);
       const monthKey = dateObj.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
-      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const val = t.paidValue ?? t.value;
 
       if (!cashFlowMap[monthKey]) {
         cashFlowMap[monthKey] = { receitas: 0, despesas: 0, lucro: 0 };
@@ -795,7 +795,7 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
   const categoryBreakdown: Record<string, { value: number; type: DREItemType; groupCode: string; name: string }> = {};
 
   paidTxs.forEach(t => {
-    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const val = t.paidValue ?? t.value;
     const catName = t.category?.trim() || 'Geral';
     const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
@@ -813,46 +813,43 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
         }
         categoryBreakdown[catName].value += val;
       }
-    } else {
-      // Despesas / Custos / Deduções
-      if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
-        deducoes += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'deducao', groupCode: '2.1', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
-      } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
-        custos += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'custo', groupCode: '3.1', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
-      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
-        depreciacaoAmortizacao += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '5.1', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
-      } else if (tag === 'JUROS_FINANCEIRO') {
-        despesasFinanceiras += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '6.2', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
-      } else if (tag === 'IMPOSTOS_LUCRO') {
-        impostosLucro += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '7.1', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
-      } else {
-        // Despesa Operacional normal (SG&A)
-        despesasOperacionais += val;
-        if (!categoryBreakdown[catName]) {
-          categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '4.1', name: catName };
-        }
-        categoryBreakdown[catName].value += val;
+    } else if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
+      deducoes += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'deducao', groupCode: '2.1', name: catName };
       }
+      categoryBreakdown[catName].value += val;
+    } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+      custos += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'custo', groupCode: '3.1', name: catName };
+      }
+      categoryBreakdown[catName].value += val;
+    } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+      depreciacaoAmortizacao += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '5.1', name: catName };
+      }
+      categoryBreakdown[catName].value += val;
+    } else if (tag === 'JUROS_FINANCEIRO') {
+      despesasFinanceiras += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '6.2', name: catName };
+      }
+      categoryBreakdown[catName].value += val;
+    } else if (tag === 'IMPOSTOS_LUCRO') {
+      impostosLucro += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '7.1', name: catName };
+      }
+      categoryBreakdown[catName].value += val;
+    } else {
+      // Despesa Operacional normal (SG&A)
+      despesasOperacionais += val;
+      if (!categoryBreakdown[catName]) {
+        categoryBreakdown[catName] = { value: 0, type: 'despesa', groupCode: '4.1', name: catName };
+      }
+      categoryBreakdown[catName].value += val;
     }
   });
 
@@ -917,27 +914,27 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
       });
     });
 
-  // Subtotal: Receita Líquida
-  items.push({
-    id: `dre-rl`,
-    code: '(=)',
-    name: 'RECEITA OPERACIONAL LÍQUIDA',
-    value: receitaLiquida,
-    percentage: receitaBruta > 0 ? (receitaLiquida / receitaBruta) * 100 : 0,
-    type: 'subtotal',
-    isBold: true
-  });
-
-  // 3. Custos de Vendas / CMV / CSP
-  items.push({
-    id: `dre-cmv`,
-    code: '3.0',
-    name: '(-) Custos dos Produtos Vendidos e Serviços Prestados (CMV/CSP)',
-    value: -custos,
-    percentage: receitaBruta > 0 ? -(custos / receitaBruta) * 100 : 0,
-    type: 'custo',
-    isBold: true
-  });
+  // Subtotal: Receita Líquida e Custos
+  items.push(
+    {
+      id: `dre-rl`,
+      code: '(=)',
+      name: 'RECEITA OPERACIONAL LÍQUIDA',
+      value: receitaLiquida,
+      percentage: receitaBruta > 0 ? (receitaLiquida / receitaBruta) * 100 : 0,
+      type: 'subtotal',
+      isBold: true
+    },
+    {
+      id: `dre-cmv`,
+      code: '3.0',
+      name: '(-) Custos dos Produtos Vendidos e Serviços Prestados (CMV/CSP)',
+      value: -custos,
+      percentage: receitaBruta > 0 ? -(custos / receitaBruta) * 100 : 0,
+      type: 'custo',
+      isBold: true
+    }
+  );
 
   Object.entries(categoryBreakdown)
     .filter(([, cat]) => cat.groupCode.startsWith('3.'))
@@ -953,27 +950,27 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
       });
     });
 
-  // Subtotal: Lucro Bruto
-  items.push({
-    id: `dre-lb`,
-    code: '(=)',
-    name: 'LUCRO BRUTO OPERACIONAL',
-    value: lucroBruto,
-    percentage: receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0,
-    type: 'subtotal',
-    isBold: true
-  });
-
-  // 4. Despesas Operacionais (SG&A)
-  items.push({
-    id: `dre-do`,
-    code: '4.0',
-    name: '(-) Despesas Operacionais e Administrativas (SG&A)',
-    value: -despesasOperacionais,
-    percentage: receitaBruta > 0 ? -(despesasOperacionais / receitaBruta) * 100 : 0,
-    type: 'despesa',
-    isBold: true
-  });
+  // Subtotal: Lucro Bruto e Despesas
+  items.push(
+    {
+      id: `dre-lb`,
+      code: '(=)',
+      name: 'LUCRO BRUTO OPERACIONAL',
+      value: lucroBruto,
+      percentage: receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0,
+      type: 'subtotal',
+      isBold: true
+    },
+    {
+      id: `dre-do`,
+      code: '4.0',
+      name: '(-) Despesas Operacionais e Administrativas (SG&A)',
+      value: -despesasOperacionais,
+      percentage: receitaBruta > 0 ? -(despesasOperacionais / receitaBruta) * 100 : 0,
+      type: 'despesa',
+      isBold: true
+    }
+  );
 
   Object.entries(categoryBreakdown)
     .filter(([, cat]) => cat.groupCode.startsWith('4.'))
@@ -1079,7 +1076,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const year = dateObj.getFullYear();
     const dayKey = `${year}-${month}-${day}`;
-    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const val = t.paidValue ?? t.value;
 
     if (!dailyFlowMap[dayKey]) dailyFlowMap[dayKey] = { in: 0, out: 0 };
     if (t.type === 'despesa') {
@@ -1096,12 +1093,12 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
   // Calcular saldos
   const totalEntradas = txs
     .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t))
-    .reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+    .reduce((acc, t) => acc + (t.paidValue ?? t.value), 0);
 
   const totalSaidas = txs
     .filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && !isOperatingRevenue(t))
     .reduce((acc, t) => {
-      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const val = t.paidValue ?? t.value;
       return acc + (t.type === 'despesa' ? val : -val);
     }, 0);
 
@@ -1136,7 +1133,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
   // Agregar top categorias de entradas
   const inCategoryMap: Record<string, number> = {};
   txs.filter(t => t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && isOperatingRevenue(t)).forEach(t => {
-    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const val = t.paidValue ?? t.value;
     inCategoryMap[t.category] = (inCategoryMap[t.category] || 0) + val;
   });
 
@@ -1154,7 +1151,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
   // Agregar top categorias de saídas
   const outCategoryMap: Record<string, number> = {};
   txs.filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA').forEach(t => {
-    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const val = t.paidValue ?? t.value;
     outCategoryMap[t.category] = (outCategoryMap[t.category] || 0) + val;
   });
 
@@ -1196,9 +1193,9 @@ export const getAccountsSummary = async (companyId: string): Promise<AccountsPay
   });
 
   const totalReceber = currentMonthTxs.filter(t => t.type === 'receita').reduce((a, b) => a + b.value, 0);
-  const totalRecebido = currentMonthTxs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((a, b) => a + (b.paidValue !== undefined ? b.paidValue : b.value), 0);
+  const totalRecebido = currentMonthTxs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((a, b) => a + (b.paidValue ?? b.value), 0);
   const totalPagar = currentMonthTxs.filter(t => t.type === 'despesa').reduce((a, b) => a + b.value, 0);
-  const totalPago = currentMonthTxs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((a, b) => a + (b.paidValue !== undefined ? b.paidValue : b.value), 0);
+  const totalPago = currentMonthTxs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((a, b) => a + (b.paidValue ?? b.value), 0);
 
   // Títulos em atraso independem do mês
   const contasAtrasadasReceber = txs.filter(t => t.type === 'receita' && t.status === 'atrasado');
@@ -1228,7 +1225,7 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
     const items = res?.items || [];
     return items.map((stk: any) => {
       const matchTxs = txs.filter(t => t.clientSupplier?.toLowerCase() === stk.name?.toLowerCase());
-      const totalValue = matchTxs.reduce((acc, t) => acc + (t.paidValue !== undefined ? t.paidValue : t.value), 0);
+      const totalValue = matchTxs.reduce((acc, t) => acc + (t.paidValue ?? t.value), 0);
 
       return {
         id: stk.id,
@@ -1293,7 +1290,7 @@ export const getFinancialHealthAnalysis = async (
   let variableExpenses = 0;
 
   paidTxs.forEach(t => {
-    const val = t.paidValue !== undefined ? t.paidValue : t.value;
+    const val = t.paidValue ?? t.value;
     const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
     if (t.type === 'receita') {
@@ -1302,37 +1299,35 @@ export const getFinancialHealthAnalysis = async (
       } else {
         totalRevenue += val;
       }
+    } else if (tag === 'JUROS_FINANCEIRO') {
+      jurosFinanceiro += val;
+    } else if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
+      impostosDeducao += val;
+      variableExpenses += val;
+    } else if (tag === 'IMPOSTOS_LUCRO') {
+      impostosLucro += val;
+    } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
+      depreciacaoAmortizacao += val;
+    } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
+      directCosts += val;
+      variableExpenses += val;
     } else {
-      if (tag === 'JUROS_FINANCEIRO') {
-        jurosFinanceiro += val;
-      } else if (tag === 'IMPOSTOS_DEDUCAO' || tag === 'IMPOSTOS') {
-        impostosDeducao += val;
-        variableExpenses += val;
-      } else if (tag === 'IMPOSTOS_LUCRO') {
-        impostosLucro += val;
-      } else if (tag === 'DEPRECIACAO_AMORTIZACAO') {
-        depreciacaoAmortizacao += val;
-      } else if (tag === 'CUSTO_MERCADORIA_SERVICO') {
-        directCosts += val;
-        variableExpenses += val;
+      // Despesas Operacionais SG&A
+      operationalExpenses += val;
+      const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
+      if (
+        nameUpper.includes('FOLHA') || 
+        nameUpper.includes('ALUGUEL') || 
+        nameUpper.includes('INFRA') || 
+        nameUpper.includes('SOFTWARE') || 
+        nameUpper.includes('HONORAR') ||
+        nameUpper.includes('CONTABIL') ||
+        nameUpper.includes('LIMPEZA') ||
+        nameUpper.includes('INTERNET')
+      ) {
+        fixedExpenses += val;
       } else {
-        // Despesas Operacionais SG&A
-        operationalExpenses += val;
-        const nameUpper = (t.category + ' ' + (t.parentCategory || '')).toUpperCase();
-        if (
-          nameUpper.includes('FOLHA') || 
-          nameUpper.includes('ALUGUEL') || 
-          nameUpper.includes('INFRA') || 
-          nameUpper.includes('SOFTWARE') || 
-          nameUpper.includes('HONORAR') ||
-          nameUpper.includes('CONTABIL') ||
-          nameUpper.includes('LIMPEZA') ||
-          nameUpper.includes('INTERNET')
-        ) {
-          fixedExpenses += val;
-        } else {
-          variableExpenses += val;
-        }
+        variableExpenses += val;
       }
     }
   });
@@ -1386,7 +1381,7 @@ export const getFinancialHealthAnalysis = async (
       else if (day > 14) wKey = 'Sem 3 (15-21)';
       else if (day > 7) wKey = 'Sem 2 (8-14)';
 
-      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const val = t.paidValue ?? t.value;
       const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
       if (t.type === 'receita') {
@@ -1435,7 +1430,7 @@ export const getFinancialHealthAnalysis = async (
       const d = parseLocalDate(t.date);
       const monthKey = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
       const dateOrder = d.getFullYear() * 12 + d.getMonth();
-      const val = t.paidValue !== undefined ? t.paidValue : t.value;
+      const val = t.paidValue ?? t.value;
       const tag = t.tag || classifyTransactionTag(t.category, t.parentCategory, t.description, t.type);
 
       if (!monthlyMap[monthKey]) {

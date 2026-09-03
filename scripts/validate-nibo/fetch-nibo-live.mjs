@@ -79,7 +79,9 @@ async function main() {
   console.log(outPath);
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   console.error('Falhou:', err.message);
   process.exit(1);
-});
+}

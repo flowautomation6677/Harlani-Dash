@@ -84,8 +84,9 @@ async function main() {
     'utf-8'
   );
 
-  const anyStale = [...credit.cacheStatuses, ...debit.cacheStatuses].some((s) => s === 'STALE');
-  const anyHit = [...credit.cacheStatuses, ...debit.cacheStatuses].some((s) => s === 'HIT');
+  const cacheList = [...credit.cacheStatuses, ...debit.cacheStatuses];
+  const anyStale = cacheList.includes('STALE');
+  const anyHit = cacheList.includes('HIT');
 
   console.log(`\nOK — ${credit.items.length} credit + ${debit.items.length} debit salvos em:`);
   console.log(outPath);
@@ -93,7 +94,9 @@ async function main() {
   else if (anyHit) console.log('ℹ️  Pelo menos uma página veio do cache (X-Cache: HIT) — pode não refletir o Nibo em tempo real (TTL de até 4h).');
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   console.error('Falhou:', err.message);
   process.exit(1);
-});
+}
