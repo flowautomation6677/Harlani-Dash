@@ -2,21 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { getAccountsSummary, AccountsPayableReceivableSummary } from '@/lib/api/niboClient';
-import { 
-  FileText, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  AlertTriangle, 
-  Search, 
-  Filter, 
-  Download, 
-  Plus, 
-  Check
+import {
+  getAccountsSummary,
+  getAgingHistory,
+  getLiquidityRunway,
+  AccountsPayableReceivableSummary,
+  AgingBucketItem,
+  LiquidityRunwayPoint
+} from '@/lib/api/niboClient';
+import {
+  FileText,
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertTriangle,
+  Search,
+  Filter,
+  Download,
+  Plus,
+  Check,
+  History,
+  TrendingUp
 } from 'lucide-react';
 
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { AgingBucketChart } from '@/components/charts/AgingBucketChart';
+import { LiquidityRunwayChart } from '@/components/charts/LiquidityRunwayChart';
 
 function getStatusBadgeConfig(status: string) {
   if (status === 'pago') {
@@ -31,6 +42,8 @@ function getStatusBadgeConfig(status: string) {
 export default function ContasPage() {
   const { selectedCompany } = useCompany();
   const [data, setData] = useState<AccountsPayableReceivableSummary | null>(null);
+  const [agingHistory, setAgingHistory] = useState<AgingBucketItem[]>([]);
+  const [runway, setRunway] = useState<LiquidityRunwayPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -45,8 +58,14 @@ export default function ContasPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await getAccountsSummary(selectedCompany.id);
+        const [res, aging, runwayPoints] = await Promise.all([
+          getAccountsSummary(selectedCompany.id),
+          getAgingHistory(selectedCompany.id, 6),
+          getLiquidityRunway(selectedCompany.id, 60)
+        ]);
         setData(res);
+        setAgingHistory(aging);
+        setRunway(runwayPoints);
       } catch (err) {
         setData(null);
         setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
@@ -79,6 +98,11 @@ export default function ContasPage() {
 
   const pctRecebido = (data.totalRecebido / (data.totalReceber || 1)) * 100;
   const pctPago = (data.totalPago / (data.totalPagar || 1)) * 100;
+
+  const maxAtrasoHistorico = agingHistory.reduce((max, item) => {
+    const total = item.faixa0a30 + item.faixa31a60 + item.faixa61a90 + item.faixa90mais;
+    return Math.max(max, total);
+  }, 0);
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
@@ -163,6 +187,34 @@ export default function ContasPage() {
             R$ {(data.totalReceber - data.totalPagar).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-muted mt-2">Diferença entre entradas e saídas previstas</div>
+        </div>
+      </div>
+
+      {/* Contexto Histórico: aging por faixa nos últimos 6 meses + tendência de liquidez,
+          para mostrar solidez ao longo do tempo em vez de só o instante atual. */}
+      <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <History size={18} className="text-danger" />
+            <h3 className="font-bold text-lg">Histórico de Atrasos (6 meses)</h3>
+          </div>
+          <p className="text-xs text-muted mb-4">
+            {maxAtrasoHistorico > 0
+              ? <>Nos últimos 6 meses, você nunca ficou com mais de <strong className="text-danger">R$ {maxAtrasoHistorico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em atraso.</>
+              : 'Nos últimos 6 meses, sua empresa não registrou valores em atraso.'}
+          </p>
+          <AgingBucketChart data={agingHistory} height={260} />
+        </div>
+
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp size={18} className="text-primary" />
+            <h3 className="font-bold text-lg">Projeção de Liquidez (60 dias)</h3>
+          </div>
+          <p className="text-xs text-muted mb-4">
+            Saldo projetado somando contas a receber e a pagar previstas, dia a dia
+          </p>
+          <LiquidityRunwayChart data={runway} height={260} />
         </div>
       </div>
 

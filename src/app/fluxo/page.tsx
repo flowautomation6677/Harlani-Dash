@@ -6,14 +6,15 @@ import { getCashFlowData, DetailedCashFlowData, parseLocalDate } from '@/lib/api
 import { CashFlowBarChart } from '@/components/charts/CashFlowBarChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { 
-  DollarSign, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Download, 
-  Plus, 
-  CheckCircle2, 
-  Clock 
+import {
+  DollarSign,
+  ArrowUpRight,
+  ArrowDownRight,
+  Download,
+  Plus,
+  CheckCircle2,
+  Clock,
+  ArrowLeftRight
 } from 'lucide-react';
 
 export default function FluxoDeCaixaPage() {
@@ -43,7 +44,17 @@ export default function FluxoDeCaixaPage() {
 
   const filteredData = useMemo(() => {
     if (!dfc) return [];
-    if (period === 'diario') return dfc.daily;
+
+    const nonOpByDate = new Map(dfc.nonOperationalByDay.map(d => [d.date, d.entradas - d.saidas]));
+
+    if (period === 'diario') {
+      return dfc.daily.map(item => {
+        const nonOpNet = nonOpByDate.get(item.date);
+        return nonOpNet === undefined
+          ? item
+          : { ...item, hasNonOperational: true, nonOperationalNet: nonOpNet };
+      });
+    }
 
     const grouped: Record<string, any> = {};
 
@@ -72,15 +83,23 @@ export default function FluxoDeCaixaPage() {
           saidas: 0,
           resultado: 0,
           saldoAcumulado: item.saldoAcumulado,
-          status: item.status
+          status: item.status,
+          hasNonOperational: false,
+          nonOperationalNet: 0
         };
       }
-      
+
       grouped[key].entradas += item.entradas;
       grouped[key].saidas += item.saidas;
       grouped[key].resultado += item.resultado;
       grouped[key].saldoAcumulado = item.saldoAcumulado;
       if (item.status === 'projetado') grouped[key].status = 'projetado';
+
+      const nonOpNet = nonOpByDate.get(item.date);
+      if (nonOpNet !== undefined) {
+        grouped[key].hasNonOperational = true;
+        grouped[key].nonOperationalNet += nonOpNet;
+      }
     });
 
     return Object.keys(grouped).sort((a, b) => a.localeCompare(b)).map(k => grouped[k]);
@@ -245,6 +264,9 @@ export default function FluxoDeCaixaPage() {
               <span className="badge badge-primary">
                 <Clock size={12} /> Projetado
               </span>
+              <span className="badge badge-purple">
+                <ArrowLeftRight size={12} /> Movimentação não-operacional
+              </span>
             </div>
           </div>
 
@@ -297,6 +319,48 @@ export default function FluxoDeCaixaPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Movimentação Não-Operacional: caixa real (aportes, giro, distribuições) que
+          não entra no ranking de despesas/receitas operacionais acima, mas afeta o saldo. */}
+      <div className="report-card report-card-purple">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <ArrowLeftRight size={22} className="report-icon" />
+            <div>
+              <div className="report-title" style={{ marginBottom: '0.15rem' }}>
+                Movimentação Não-Operacional do Período
+              </div>
+              <p className="text-xs text-muted" style={{ maxWidth: '420px' }}>
+                Aportes, giro e distribuições (tag INVESTIMENTO_NAO_OPERACIONAL) — não afeta o lucro operacional, mas afeta o caixa.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="text-center">
+              <div className="text-xs font-semibold text-muted mb-1">ENTRADAS</div>
+              <div className="text-lg font-bold text-success">
+                + R$ {dfc.nonOperationalSummary.entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs font-semibold text-muted mb-1">SAÍDAS</div>
+              <div className="text-lg font-bold text-danger">
+                - R$ {dfc.nonOperationalSummary.saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs font-semibold text-muted mb-1">LÍQUIDO</div>
+              <div className="report-value text-lg font-bold">
+                {dfc.nonOperationalSummary.net >= 0 ? '+' : ''} R$ {dfc.nonOperationalSummary.net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <span className="badge badge-purple">
+              {dfc.nonOperationalSummary.countTransactions} lançamento{dfc.nonOperationalSummary.countTransactions === 1 ? '' : 's'}
+            </span>
           </div>
         </div>
       </div>

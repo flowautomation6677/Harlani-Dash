@@ -17,6 +17,25 @@ interface CashFlowBarChartProps {
   readonly height?: number;
 }
 
+function NonOperationalDot(props: any) {
+  const { cx, cy, payload } = props;
+  if (!payload?.hasNonOperational) {
+    return <circle cx={cx} cy={cy} r={4} fill="var(--primary)" />;
+  }
+
+  const net = payload.nonOperationalNet as number | undefined;
+  const netLabel = typeof net === 'number'
+    ? `Movimentação não-operacional: R$ ${net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} líquido`
+    : 'Movimentação não-operacional (aporte, giro, distribuição)';
+
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={7} fill="var(--purple)" stroke="#fff" strokeWidth={2} />
+      <title>{`${netLabel} — não afeta o lucro operacional, mas afeta o caixa`}</title>
+    </g>
+  );
+}
+
 export function CashFlowBarChart({ data, height = 320 }: Readonly<CashFlowBarChartProps>) {
   return (
     <div style={{ height: `${height}px`, width: '100%' }}>
@@ -74,15 +93,15 @@ export function CashFlowBarChart({ data, height = 320 }: Readonly<CashFlowBarCha
             radius={[4, 4, 0, 0]} 
             barSize={20} 
           />
-          <Line 
-            yAxisId="right" 
-            type="monotone" 
-            dataKey="saldoAcumulado" 
-            name="Saldo Acumulado" 
-            stroke="var(--primary)" 
-            strokeWidth={3} 
-            dot={{ r: 4 }} 
-            activeDot={{ r: 6 }} 
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="saldoAcumulado"
+            name="Saldo Acumulado"
+            stroke="var(--primary)"
+            strokeWidth={3}
+            dot={<NonOperationalDot />}
+            activeDot={{ r: 6 }}
           />
         </ComposedChart>
       </ResponsiveContainer>

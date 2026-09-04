@@ -296,6 +296,19 @@ export interface CashFlowCategory {
   color: string;
 }
 
+export interface NonOperationalDayMovement {
+  date: string;
+  entradas: number;
+  saidas: number;
+}
+
+export interface NonOperationalSummary {
+  entradas: number;
+  saidas: number;
+  net: number;
+  countTransactions: number;
+}
+
 export interface DetailedCashFlowData {
   saldoInicial: number;
   totalEntradas: number;
@@ -305,6 +318,8 @@ export interface DetailedCashFlowData {
   daily: CashFlowDailyItem[];
   topEntradasCategories: CashFlowCategory[];
   topSaidasCategories: CashFlowCategory[];
+  nonOperationalSummary: NonOperationalSummary;
+  nonOperationalByDay: NonOperationalDayMovement[];
 }
 
 export interface AccountsPayableReceivableSummary {
@@ -1150,21 +1165,53 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
 
   // Agregar top categorias de saídas
   const outCategoryMap: Record<string, number> = {};
-  txs.filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA').forEach(t => {
+  txs.filter(t => t.type === 'despesa' && t.status === 'pago' && t.tag !== 'TRANSFERENCIA_INTERNA' && t.tag !== 'INVESTIMENTO_NAO_OPERACIONAL').forEach(t => {
     const val = t.paidValue ?? t.value;
     outCategoryMap[t.category] = (outCategoryMap[t.category] || 0) + val;
   });
 
   const topSaidasCategories = Object.entries(outCategoryMap)
-    .map(([name, value], index) => ({ 
-      category: name, 
-      value: Math.round(value * 100) / 100, 
+    .map(([name, value], index) => ({
+      category: name,
+      value: Math.round(value * 100) / 100,
       percentage: totalSaidas > 0 ? Math.round((value / totalSaidas) * 1000) / 10 : 0,
       type: 'saida' as const,
       color: colorsOut[index % colorsOut.length]
     }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 4);
+
+  // Movimentação Não-Operacional (INVESTIMENTO_NAO_OPERACIONAL): caixa real que
+  // entrou/saiu (aportes, giro, distribuições) mas não deve competir no ranking
+  // de despesas/receitas operacionais acima — é reportado à parte.
+  const nonOpTxs = txs.filter(t => t.status === 'pago' && t.tag === 'INVESTIMENTO_NAO_OPERACIONAL');
+  let nonOpEntradas = 0;
+  let nonOpSaidas = 0;
+  const nonOpByDayMap: Record<string, { entradas: number; saidas: number }> = {};
+
+  nonOpTxs.forEach(t => {
+    const val = t.paidValue ?? t.value;
+    const dateObj = parseLocalDate(t.date);
+    const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+    if (!nonOpByDayMap[dayKey]) nonOpByDayMap[dayKey] = { entradas: 0, saidas: 0 };
+
+    if (t.type === 'receita') {
+      nonOpEntradas += val;
+      nonOpByDayMap[dayKey].entradas += val;
+    } else {
+      nonOpSaidas += val;
+      nonOpByDayMap[dayKey].saidas += val;
+    }
+  });
+
+  const nonOperationalByDay = Object.keys(nonOpByDayMap)
+    .sort((a, b) => a.localeCompare(b))
+    .map(key => ({
+      date: key,
+      entradas: Math.round(nonOpByDayMap[key].entradas * 100) / 100,
+      saidas: Math.round(nonOpByDayMap[key].saidas * 100) / 100
+    }));
 
   return {
     saldoInicial: Math.round(saldoInicial * 100) / 100,
@@ -1174,7 +1221,14 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
     saldoFinal: Math.round(saldoFinal * 100) / 100,
     daily: dailyFlow,
     topEntradasCategories,
-    topSaidasCategories
+    topSaidasCategories,
+    nonOperationalSummary: {
+      entradas: Math.round(nonOpEntradas * 100) / 100,
+      saidas: Math.round(nonOpSaidas * 100) / 100,
+      net: Math.round((nonOpEntradas - nonOpSaidas) * 100) / 100,
+      countTransactions: nonOpTxs.length
+    },
+    nonOperationalByDay
   };
 };
 
@@ -1214,6 +1268,111 @@ export const getAccountsSummary = async (companyId: string): Promise<AccountsPay
     countAtrasados: contasAtrasadasReceber.length + contasAtrasadasPagar.length,
     accounts: txs
   };
+};
+
+export interface AgingBucketItem {
+  month: string;
+  faixa0a30: number;
+  faixa31a60: number;
+  faixa61a90: number;
+  faixa90mais: number;
+}
+
+// Aproxima o histórico de aging retroativamente: para cada mês de referência,
+// verifica se cada título já estava vencido e ainda em aberto naquela data
+// (comparando dueDate e, para os já pagos hoje, settlementDate). Não temos
+// snapshots históricos reais do Nibo, então esta é uma reconstrução a partir
+// dos dados de schedules já carregados — conforme decidido, é aceitável.
+export const getAgingHistory = async (companyId: string, monthsBack: number = 6): Promise<AgingBucketItem[]> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+  const today = new Date();
+  const result: AgingBucketItem[] = [];
+
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const refDate = i === 0 ? today : new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
+    const refTime = refDate.getTime();
+
+    let faixa0a30 = 0;
+    let faixa31a60 = 0;
+    let faixa61a90 = 0;
+    let faixa90mais = 0;
+
+    txs.forEach(t => {
+      const dueTime = parseLocalDate(t.dueDate).getTime();
+      if (dueTime >= refTime) return;
+
+      if (t.status === 'pago' && t.settlementDate) {
+        const settleTime = parseLocalDate(t.settlementDate).getTime();
+        if (settleTime <= refTime) return;
+      }
+
+      const daysOverdue = Math.floor((refTime - dueTime) / 86400000);
+      if (daysOverdue <= 0) return;
+
+      if (daysOverdue <= 30) faixa0a30 += t.value;
+      else if (daysOverdue <= 60) faixa31a60 += t.value;
+      else if (daysOverdue <= 90) faixa61a90 += t.value;
+      else faixa90mais += t.value;
+    });
+
+    const monthLabel = refDate.toLocaleString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+
+    result.push({
+      month: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+      faixa0a30: Math.round(faixa0a30 * 100) / 100,
+      faixa31a60: Math.round(faixa31a60 * 100) / 100,
+      faixa61a90: Math.round(faixa61a90 * 100) / 100,
+      faixa90mais: Math.round(faixa90mais * 100) / 100
+    });
+  }
+
+  return result;
+};
+
+export interface LiquidityRunwayPoint {
+  date: string;
+  saldoProjetado: number;
+}
+
+// Projeta o saldo dia a dia somando títulos ainda não liquidados nas suas
+// datas de vencimento (títulos já atrasados são tratados como exigíveis
+// imediatamente, no dia de hoje). Parte do saldoAtual já calculado em
+// getClientData — não recalcula esse número, só evolui a partir dele.
+export const getLiquidityRunway = async (companyId: string, days: number = 60): Promise<LiquidityRunwayPoint[]> => {
+  const clientData = await getClientData(companyId);
+  const txs = clientData.transactions;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
+
+  const pendingByDay: Record<string, number> = {};
+
+  txs.forEach(t => {
+    if (t.status === 'pago') return;
+    const due = parseLocalDate(t.dueDate);
+    const target = due.getTime() < todayTime ? today : due;
+    const key = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+    const signedValue = t.type === 'receita' ? t.value : -t.value;
+    pendingByDay[key] = (pendingByDay[key] || 0) + signedValue;
+  });
+
+  const points: LiquidityRunwayPoint[] = [];
+  let saldo = clientData.metrics.saldoAtual;
+
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    saldo += pendingByDay[key] || 0;
+    points.push({
+      date: key,
+      saldoProjetado: Math.round(saldo * 100) / 100
+    });
+  }
+
+  return points;
 };
 
 export const getStakeholders = async (companyId: string): Promise<Stakeholder[]> => {

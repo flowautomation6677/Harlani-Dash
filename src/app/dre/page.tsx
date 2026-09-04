@@ -9,6 +9,7 @@ import {
   FinancialHealthAnalysis 
 } from '@/lib/api/niboClient';
 import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
+import { DreWaterfallChart, WaterfallView } from '@/components/charts/DreWaterfallChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { 
@@ -61,6 +62,7 @@ export default function DREPage() {
   const [period, setPeriod] = useState('2026-ytd');
   const [searchTerm, setSearchTerm] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [waterfallView, setWaterfallView] = useState<WaterfallView>('bpo');
 
   useEffect(() => {
     async function loadDRE() {
@@ -173,47 +175,38 @@ export default function DREPage() {
         </div>
       </div>
 
-      {/* Cards de Resumo Gerencial */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">RECEITA LÍQUIDA</div>
-          <div className="text-2xl font-bold text-primary mb-1">
-            R$ {dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      {/* Ponte de Resultado (Waterfall): substitui os tiles soltos por uma cascata
+          que mostra como a Receita Bruta vira Lucro Líquido, passo a passo. */}
+      <div className="card">
+        <div className="flex flex-wrap justify-between items-center mb-2 gap-2">
+          <div>
+            <h3 className="font-bold text-lg">Ponte de Resultado — da Receita ao Lucro</h3>
+            <p className="text-xs text-muted">
+              {waterfallView === 'bpo'
+                ? 'Detalhamento completo: deduções, custos, despesas e resultado financeiro'
+                : 'Visão resumida para o cliente: receita, custos totais e lucro'}
+            </p>
           </div>
-          <div className="text-xs text-muted">
-            Faturamento Bruto: R$ {dre.receitaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+
+          <div className="tabs-container">
+            <button
+              type="button"
+              className={`tab-btn ${waterfallView === 'bpo' ? 'active' : ''}`}
+              onClick={() => setWaterfallView('bpo')}
+            >
+              Visão BPO
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${waterfallView === 'cliente' ? 'active' : ''}`}
+              onClick={() => setWaterfallView('cliente')}
+            >
+              Visão Cliente
+            </button>
           </div>
         </div>
 
-        <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">LUCRO BRUTO</div>
-          <div className="text-2xl font-bold text-secondary mb-1">
-            R$ {dre.lucroBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
-          <div className="text-xs text-muted">
-            Margem Bruta: <strong className="text-secondary">{((dre.lucroBruto / (dre.receitaBruta || 1)) * 100).toFixed(1)}%</strong>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">EBITDA (OPERACIONAL)</div>
-          <div className="text-2xl font-bold text-purple mb-1">
-            R$ {health.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
-          <div className="text-xs text-muted">
-            Margem EBITDA: <strong className="text-purple">{health.margemEbitda.toFixed(1)}%</strong>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="text-xs font-semibold text-muted mb-2">RESULTADO LÍQUIDO</div>
-          <div className={`text-2xl font-bold mb-1 ${dre.lucroLiquido >= 0 ? 'text-success' : 'text-danger'}`}>
-            R$ {dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
-          <div className="text-xs text-muted">
-            Margem: <strong style={{ color: '#059669' }}>{dre.margemLiquida.toFixed(1)}%</strong>
-          </div>
-        </div>
+        <DreWaterfallChart dre={dre} view={waterfallView} height={360} />
       </div>
 
       {/* Gráficos: Evolução do EBITDA e Estrutura de DRE */}
