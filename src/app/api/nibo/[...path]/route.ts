@@ -1,41 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCached, setCached } from '@/lib/cache/redisClient';
 import { buildCacheKey, buildStaleCacheKey, shouldCache, getTTL, CACHE_TTL } from '@/lib/cache/cacheKeys';
+import { getSession } from '@/lib/auth/getSession';
+import { getDecryptedNiboKey } from '@/lib/repositories/tenantRepository';
 
 export const dynamic = 'force-dynamic';
 
 const NIBO_API_URL = process.env.NIBO_API_URL || 'https://api.nibo.com.br/empresas/v1';
 
-function getNiboToken(companyId: string | null): string | undefined {
-  if (companyId === '2') return process.env.NIBO_API_TOKEN_CLIENT_2;
-  return process.env.NIBO_API_TOKEN;
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const companyId = request.nextUrl.searchParams.get('companyId') || '1';
-  const niboToken = getNiboToken(companyId);
+  // O tenant SEMPRE vem da sessão autenticada — nunca de query params/headers
+  // do cliente. Isso é o que impede um tenant de ler os dados de outro
+  // (Cross-Tenant Leak) só trocando um parâmetro na URL.
+  const session = getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  }
+  if (!session.tenantId) {
+    return NextResponse.json({ error: 'Usuário sem tenant associado.' }, { status: 400 });
+  }
+  const tenantId = session.tenantId;
 
-  if (!niboToken || niboToken === 'COLE_SEU_TOKEN_AQUI') {
-    return NextResponse.json({ error: 'Nibo API Token not configured.' }, { status: 500 });
+  let niboToken: string;
+  try {
+    niboToken = await getDecryptedNiboKey(tenantId);
+  } catch {
+    return NextResponse.json({ error: 'Integração Nibo não configurada para este cliente.' }, { status: 500 });
   }
 
   const { path } = await params;
   const endpoint = path.join('/');
   const targetParams = new URLSearchParams(request.nextUrl.searchParams);
-  targetParams.delete('companyId');
+  targetParams.delete('companyId'); // legado do seletor de empresa no front — ignorado, o tenant é o da sessão
   const query = targetParams.toString() ? `?${targetParams.toString()}` : '';
   const targetUrl = `${NIBO_API_URL}/${endpoint}${query}`;
 
   // ------------------------------------------------------------------
   // Cache-aside pattern
   // Apenas endpoints financeiros sao cacheados (schedules, accounts...)
+  // Chave prefixada por tenantId para isolar o cache entre clientes.
   // ------------------------------------------------------------------
   const cacheable = shouldCache(endpoint);
-  const cacheKey = buildCacheKey(endpoint, query, companyId);
-  const staleCacheKey = buildStaleCacheKey(endpoint, query, companyId);
+  const cacheKey = buildCacheKey(endpoint, query, tenantId);
+  const staleCacheKey = buildStaleCacheKey(endpoint, query, tenantId);
 
   if (cacheable) {
     // 1. Tentar retornar do cache (CACHE HIT)

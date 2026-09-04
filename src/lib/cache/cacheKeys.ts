@@ -20,21 +20,24 @@ export const CACHE_TTL = {
 
 /**
  * Gera uma chave de cache unica baseada no endpoint e query string.
- * Exemplo: "nibo:schedules/credit:$filter=dueDate+ge+2026-01-01&$top=500&$skip=0"
+ * O prefixo tenantId isola o cache entre clientes — nunca derive essa chave
+ * de um valor vindo do cliente (query param, header); use sempre o tenantId
+ * extraido da sessao autenticada, sob risco de vazamento cross-tenant.
+ * Exemplo: "nibo:<tenantId>:schedules/credit:$filter=dueDate+ge+2026-01-01&$top=500&$skip=0"
  */
-export function buildCacheKey(endpoint: string, queryString: string, companyId = 'default'): string {
+export function buildCacheKey(endpoint: string, queryString: string, tenantId = 'default'): string {
   const cleanQuery = queryString.startsWith('?') ? queryString.slice(1) : queryString;
   return cleanQuery
-    ? `nibo:${companyId}:${endpoint}:${cleanQuery}`
-    : `nibo:${companyId}:${endpoint}`;
+    ? `nibo:${tenantId}:${endpoint}:${cleanQuery}`
+    : `nibo:${tenantId}:${endpoint}`;
 }
 
 /**
  * Chave especial para armazenar o ultimo dado valido (stale backup).
  * Usado quando a API do Nibo falha e precisamos servir o dado mais recente.
  */
-export function buildStaleCacheKey(endpoint: string, queryString: string, companyId = 'default'): string {
-  return `stale:${buildCacheKey(endpoint, queryString, companyId)}`;
+export function buildStaleCacheKey(endpoint: string, queryString: string, tenantId = 'default'): string {
+  return `stale:${buildCacheKey(endpoint, queryString, tenantId)}`;
 }
 
 /** Verifica se um endpoint deve ser cacheado */

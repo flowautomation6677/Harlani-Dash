@@ -16,17 +16,19 @@ vi.mock('@/lib/db/prisma', () => ({
     },
     integrationConfig: {
       upsert: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
 
 vi.mock('@/lib/security/encryption', () => ({
   encrypt: vi.fn(),
+  decrypt: vi.fn(),
 }));
 
 import { prisma } from '@/lib/db/prisma';
-import { encrypt } from '@/lib/security/encryption';
-import { createTenant, linkNiboIntegration } from '@/lib/repositories/tenantRepository';
+import { encrypt, decrypt } from '@/lib/security/encryption';
+import { createTenant, linkNiboIntegration, getDecryptedNiboKey } from '@/lib/repositories/tenantRepository';
 
 describe('createTenant', () => {
   beforeEach(() => {
@@ -109,5 +111,52 @@ describe('linkNiboIntegration', () => {
         isActive: true,
       },
     });
+  });
+});
+
+describe('getDecryptedNiboKey', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('deve buscar a IntegrationConfig do tenant correto e retornar a chave já descriptografada', async () => {
+    vi.mocked(prisma.integrationConfig.findUnique).mockResolvedValue({
+      id: 'integ-1',
+      tenantId: 'tenant-1',
+      provider: 'NIBO',
+      encryptedKey: 'cipher-abc',
+      iv: 'iv-abc',
+      isActive: true,
+    } as never);
+    vi.mocked(decrypt).mockReturnValue('TOKEN_NIBO_EM_TEXTO_PURO');
+
+    const key = await getDecryptedNiboKey('tenant-1');
+
+    expect(prisma.integrationConfig.findUnique).toHaveBeenCalledWith({
+      where: { tenantId_provider: { tenantId: 'tenant-1', provider: 'NIBO' } },
+    });
+    expect(decrypt).toHaveBeenCalledWith('cipher-abc', 'iv-abc');
+    expect(key).toBe('TOKEN_NIBO_EM_TEXTO_PURO');
+  });
+
+  it('deve lançar erro se o tenant não tiver nenhuma IntegrationConfig cadastrada', async () => {
+    vi.mocked(prisma.integrationConfig.findUnique).mockResolvedValue(null);
+
+    await expect(getDecryptedNiboKey('tenant-sem-integracao')).rejects.toThrow();
+    expect(decrypt).not.toHaveBeenCalled();
+  });
+
+  it('deve lançar erro se a IntegrationConfig existir mas estiver inativa (isActive: false)', async () => {
+    vi.mocked(prisma.integrationConfig.findUnique).mockResolvedValue({
+      id: 'integ-2',
+      tenantId: 'tenant-2',
+      provider: 'NIBO',
+      encryptedKey: 'cipher-x',
+      iv: 'iv-x',
+      isActive: false,
+    } as never);
+
+    await expect(getDecryptedNiboKey('tenant-2')).rejects.toThrow();
+    expect(decrypt).not.toHaveBeenCalled();
   });
 });
