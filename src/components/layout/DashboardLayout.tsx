@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CompanyProvider } from '@/context/CompanyContext';
@@ -11,12 +11,22 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <CompanyProvider>
       <div className="dashboard-container">
-        <Sidebar />
+        <Sidebar isOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} />
+        {isSidebarOpen && (
+          <button
+            type="button"
+            className="sidebar-overlay"
+            aria-label="Fechar menu de navegação"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
         <div className="main-content">
-          <Header />
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
           <main className="content-area">
             {children}
           </main>

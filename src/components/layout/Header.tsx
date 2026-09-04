@@ -1,15 +1,23 @@
 'use client';
 
-import { Bell, Search, Building2, ChevronDown, ShieldCheck } from 'lucide-react';
+import { Bell, Search, Building2, ChevronDown, ShieldCheck, Menu } from 'lucide-react';
 import { useCompany } from '@/context/CompanyContext';
 
-export function Header() {
+interface HeaderProps {
+  readonly onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const { selectedCompany, setSelectedCompanyId, companies } = useCompany();
 
   return (
     <header className="header">
       {/* Seletor de Cliente / Empresa */}
       <div className="flex items-center gap-3">
+        <button type="button" className="menu-toggle" onClick={onMenuClick} aria-label="Abrir menu de navegação">
+          <Menu size={22} />
+        </button>
+
         <div className="custom-select-container">
           <Building2 size={18} className="text-primary" />
           <select 

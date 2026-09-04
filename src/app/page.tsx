@@ -793,7 +793,13 @@ export default function DashboardPage() {
 
           <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-muted">
             <span>Última sincronização: <strong>Hoje às 23:48</strong></span>
-            <button type="button" className="text-primary hover:underline font-semibold">Atualizar</button>
+            <button
+              type="button"
+              className="text-primary hover:underline font-semibold"
+              style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+            >
+              Atualizar
+            </button>
           </div>
         </div>
       </div>

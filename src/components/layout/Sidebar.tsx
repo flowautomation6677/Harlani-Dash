@@ -4,16 +4,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, PieChart, DollarSign, FileText, Users, BarChart3, Settings, LogOut } from 'lucide-react';
 
-export function Sidebar() {
+interface SidebarProps {
+  readonly isOpen?: boolean;
+  readonly onNavigate?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-header">
         <h2>Harlani<span className="text-primary">Gestão</span></h2>
       </div>
-      
-      <nav className="sidebar-nav">
+
+      {/* Fecha o drawer ao navegar (irrelevante no desktop, onde a sidebar
+          já fica sempre visível independente desse estado). */}
+      <nav className="sidebar-nav" onClick={onNavigate}>
         <ul>
           <li className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
             <Link href="/" className="nav-link">
