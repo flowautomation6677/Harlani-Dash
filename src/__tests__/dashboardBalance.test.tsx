@@ -116,7 +116,7 @@ vi.mock('@/lib/api/niboClient', async (importActual) => {
   };
 });
 
-import DashboardPage from '@/app/page';
+import DashboardPage from '@/app/(app)/dashboard/page';
 import { CompanyProvider } from '@/context/CompanyContext';
 
 function getSaldoEmContaText(): string {

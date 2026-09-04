@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Bell, Search, Building2, ChevronDown, ShieldCheck, Menu } from 'lucide-react';
 import { useCompany } from '@/context/CompanyContext';
 
@@ -7,8 +8,30 @@ interface HeaderProps {
   readonly onMenuClick?: () => void;
 }
 
+interface CurrentUser {
+  name: string | null;
+  email: string;
+  role: 'SUPER_ADMIN' | 'CLIENT';
+}
+
 export function Header({ onMenuClick }: HeaderProps) {
   const { selectedCompany, setSelectedCompanyId, companies } = useCompany();
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setCurrentUser(data?.user ?? null))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
+  const displayName = currentUser?.name || currentUser?.email || 'Harlani Gestão';
+  const initials = displayName
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <header className="header">
@@ -63,10 +86,12 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
 
         <div className="user-profile cursor-pointer">
-          <div className="avatar">HG</div>
+          <div className="avatar">{initials || 'HG'}</div>
           <div className="user-profile-info">
-            <div className="text-sm font-semibold">Harlani Gestão</div>
-            <div className="text-xs text-muted">Consultoria & BPO Financeiro</div>
+            <div className="text-sm font-semibold">{displayName}</div>
+            <div className="text-xs text-muted">
+              {currentUser?.role === 'SUPER_ADMIN' ? 'Administrador' : 'Consultoria & BPO Financeiro'}
+            </div>
           </div>
         </div>
       </div>

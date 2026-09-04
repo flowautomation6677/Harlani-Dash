@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, PieChart, DollarSign, FileText, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { HarlaniLogo } from '@/components/brand/HarlaniLogo';
 
 interface SidebarProps {
   readonly isOpen?: boolean;
@@ -11,19 +12,26 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = false, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-header">
-        <h2>Harlani<span className="text-primary">Gestão</span></h2>
+        <HarlaniLogo variant="compact" />
       </div>
 
       {/* Fecha o drawer ao navegar (irrelevante no desktop, onde a sidebar
           já fica sempre visível independente desse estado). */}
       <nav className="sidebar-nav" onClick={onNavigate}>
         <ul>
-          <li className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
-            <Link href="/" className="nav-link">
+          <li className={`nav-item ${pathname === '/dashboard' ? 'active' : ''}`}>
+            <Link href="/dashboard" className="nav-link">
               <Home size={20} />
               <span>Dashboard</span>
             </Link>
@@ -66,7 +74,11 @@ export function Sidebar({ isOpen = false, onNavigate }: SidebarProps) {
           <Settings size={20} />
           <span>Configurações</span>
         </button>
-        <button type="button" className="nav-link w-full text-left text-danger bg-transparent border-none mt-2">
+        <button
+          type="button"
+          className="nav-link w-full text-left text-danger bg-transparent border-none mt-2"
+          onClick={handleLogout}
+        >
           <LogOut size={20} />
           <span>Sair</span>
         </button>

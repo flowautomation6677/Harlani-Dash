@@ -2,10 +2,18 @@
 
 :root {
   /* Design Tokens - Modern Financial SaaS Palette */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-light: rgba(59, 130, 246, 0.1);
-  
+  /* IDV Harlani Gomes: azul mais profundo/corporativo (do degradê da seta da
+     logo) no lugar do azul genérico anterior. */
+  --primary: #2c5aa0;
+  --primary-hover: #1e3f73;
+  --primary-light: rgba(44, 90, 160, 0.1);
+
+  /* Degradês da marca (usados no wordmark/monograma) */
+  --brand-silver-start: #d4d6d9;
+  --brand-silver-end: #8a8d92;
+  --brand-blue-start: #7bb6e8;
+  --brand-blue-end: #1e3f73;
+
   --secondary: #10b981;
   --secondary-light: rgba(16, 185, 129, 0.1);
   
@@ -36,7 +44,7 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow: 0 0 20px rgba(44, 90, 160, 0.15);
   
   /* Border Radius */
   --radius-sm: 0.375rem;
@@ -263,6 +271,15 @@ input, select, textarea { font-family: inherit; }
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
+  /* Remove a seta nativa do <select> — o ícone ChevronDown ao lado já cobre
+     isso. Sem isso apareciam duas setas (a do navegador + a nossa). */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.custom-select::-ms-expand {
+  display: none;
 }
 
 .input-field {
@@ -279,7 +296,7 @@ input, select, textarea { font-family: inherit; }
 
 .input-field:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.15);
 }
 
 /* Buttons */
@@ -300,12 +317,12 @@ input, select, textarea { font-family: inherit; }
 .btn-primary {
   background-color: var(--primary);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
 }
 
 .btn-primary:hover {
   background-color: var(--primary-hover);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(44, 90, 160, 0.4);
   transform: translateY(-1px);
 }
 
@@ -448,14 +465,14 @@ input, select, textarea { font-family: inherit; }
 }
 
 .report-card-info {
-  background-color: rgba(59, 130, 246, 0.05);
-  border-color: rgba(59, 130, 246, 0.2);
+  background-color: rgba(44, 90, 160, 0.05);
+  border-color: rgba(44, 90, 160, 0.2);
 }
 .report-card-info .report-title { color: #1e40af; } 
-.report-card-info .report-icon { color: #2563eb; } 
+.report-card-info .report-icon { color: var(--primary-hover); } 
 .report-card-info .report-value { color: #1d4ed8; } 
 .report-card-info .report-footer {
-  border-top: 1px solid rgba(59, 130, 246, 0.2);
+  border-top: 1px solid rgba(44, 90, 160, 0.2);
   color: #1e40af;
 }
 
@@ -557,7 +574,7 @@ input, select, textarea { font-family: inherit; }
 
 .bank-icon-container {
   padding: 0.5rem;
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: rgba(44, 90, 160, 0.15);
   color: #60a5fa;
   border-radius: 0.5rem;
   display: flex;
@@ -593,7 +610,7 @@ input, select, textarea { font-family: inherit; }
   font-size: 0.65rem;
   font-weight: 600;
   color: #60a5fa;
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: rgba(44, 90, 160, 0.1);
   padding: 0.2rem 0.5rem;
   border-radius: 0.25rem;
   text-transform: uppercase;

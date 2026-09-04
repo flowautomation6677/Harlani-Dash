@@ -17,8 +17,6 @@ export const metadata: Metadata = {
   description: "BPO Financeiro, Gestão de Fluxo de Caixa e DRE com integração Nibo API.",
 };
 
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,9 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
-        <DashboardLayout>{children}</DashboardLayout>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
