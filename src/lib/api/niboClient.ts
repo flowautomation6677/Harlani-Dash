@@ -722,6 +722,20 @@ export const getClientData = async (companyId: string) => {
     const receitaOperacionalTxCount = mappedTransactions.filter(t => isOperatingRevenue(t)).length;
     const hasReceitas = receitaOperacionalTxCount > 0;
 
+    // Taxa de inadimplência real: proporção do valor a receber que já venceu
+    // e segue em aberto (status 'atrasado'), sobre o total de receitas
+    // esperadas (pagas + pendentes + atrasadas), excluindo transferências
+    // internas que não representam receita de verdade.
+    const receitaTotalEsperada = mappedTransactions
+      .filter(t => t.type === 'receita' && t.tag !== 'TRANSFERENCIA_INTERNA')
+      .reduce((acc, t) => acc + t.value, 0);
+    const receitaAtrasada = mappedTransactions
+      .filter(t => t.type === 'receita' && t.status === 'atrasado' && t.tag !== 'TRANSFERENCIA_INTERNA')
+      .reduce((acc, t) => acc + t.value, 0);
+    const taxaInadimplencia = receitaTotalEsperada > 0
+      ? Math.round((receitaAtrasada / receitaTotalEsperada) * 1000) / 10
+      : 0;
+
     const metrics: ClientMetrics = {
       saldoAtual: Math.round(saldoAtual * 100) / 100,
       receberMes: Math.round(receberMes * 100) / 100,
@@ -729,7 +743,7 @@ export const getClientData = async (companyId: string) => {
       ticketMedio: hasReceitas
         ? Math.round((receitasPagas + receberMes) / receitaOperacionalTxCount)
         : 0,
-      taxaInadimplencia: 0,
+      taxaInadimplencia,
       margemOperacional: receitasPagas > 0 ? Math.round(((receitasPagas - despesasPagas) / receitasPagas) * 100) : 0,
       previsao30dias: Math.round((saldoAtual + (receberMes - pagarMes)) * 100) / 100
     };

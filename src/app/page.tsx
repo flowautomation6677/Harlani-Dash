@@ -2,14 +2,18 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { 
-  getClientData, 
-  getBankAccounts, 
-  getCostCenters, 
-  ClientMetrics, 
-  Transaction, 
-  BankAccount, 
-  CostCenter 
+import {
+  getClientData,
+  getBankAccounts,
+  getCostCenters,
+  getLiquidityRunway,
+  getFinancialHealthAnalysis,
+  ClientMetrics,
+  Transaction,
+  BankAccount,
+  CostCenter,
+  LiquidityRunwayPoint,
+  FinancialHealthAnalysis
 } from '@/lib/api/niboClient';
 import { exportFinancialsToExcel, exportFinancialsToCSV } from '@/lib/utils/exportToExcel';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
@@ -37,6 +41,13 @@ import {
 } from 'lucide-react';
 
 const MONTH_ABBR_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+function formatSyncLabel(d: Date): string {
+  const now = new Date();
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const isToday = d.toDateString() === now.toDateString();
+  return isToday ? `Hoje às ${time}` : `${d.toLocaleDateString('pt-BR')} às ${time}`;
+}
 
 function getDefaultCustomRange() {
   const now = new Date();
@@ -75,6 +86,9 @@ export default function DashboardPage() {
   const [data, setData] = useState<{ metrics: ClientMetrics; cashFlow: any[]; transactions: Transaction[] } | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [runway, setRunway] = useState<LiquidityRunwayPoint[]>([]);
+  const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,14 +121,17 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [res, banks, cc] = await Promise.all([
+        const [res, banks, cc, runwayData] = await Promise.all([
           getClientData(selectedCompany.id),
           getBankAccounts(selectedCompany.id),
-          getCostCenters(selectedCompany.id)
+          getCostCenters(selectedCompany.id),
+          getLiquidityRunway(selectedCompany.id, 365)
         ]);
         setData(res);
         setBankAccounts(banks);
         setCostCenters(cc);
+        setRunway(runwayData);
+        setLastSyncAt(new Date());
       } catch (err) {
         setData(null);
         setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
@@ -124,6 +141,27 @@ export default function DashboardPage() {
     }
     loadData();
   }, [selectedCompany.id, retryCount]);
+
+  // Ponto de Equilíbrio real (margem de contribuição), recalculado por
+  // período — mesma função já usada em Relatórios Mensais, com sua própria
+  // convenção de nomes de período (independente do ano calendário).
+  useEffect(() => {
+    async function loadHealth() {
+      const periodMap: Record<typeof period, string> = {
+        '30d': '2026-m',
+        '90d': '2026-q',
+        'year': '2026-ytd',
+        'custom': 'custom'
+      };
+      try {
+        const h = await getFinancialHealthAnalysis(selectedCompany.id, periodMap[period], startDate, endDate);
+        setHealth(h);
+      } catch {
+        setHealth(null);
+      }
+    }
+    loadHealth();
+  }, [selectedCompany.id, period, startDate, endDate, retryCount]);
 
   // -------------------------------------------------------------
   // LÓGICA DE FILTRAGEM REAL E DINÂMICA POR DATA
@@ -301,6 +339,33 @@ export default function DashboardPage() {
   // diferente (tracejado, opacidade menor) em vez de deixar como se fosse.
   const cashFlowPartialIndex = getPartialIndex(displayCashFlow, (item) => item.key);
   const chartData = withPartialSplit(displayCashFlow, ['receitas', 'despesas', 'lucro'], cashFlowPartialIndex);
+
+  // Índice de Liquidez Corrente: (Saldo + A Receber) / A Pagar. Sem passivo
+  // no período, a divisão não faz sentido — tratamos como "sem passivos".
+  const liquidezCorrente = computedMetrics.pagarMes > 0
+    ? (computedMetrics.saldoAtual + computedMetrics.receberMes) / computedMetrics.pagarMes
+    : null;
+  const liquidezLabel = liquidezCorrente === null
+    ? 'Sem passivos'
+    : liquidezCorrente >= 1.5 ? 'Saudável' : liquidezCorrente >= 1.0 ? 'Atenção' : 'Crítico';
+  const liquidezBadge = liquidezCorrente === null || liquidezCorrente >= 1.5
+    ? 'badge-success'
+    : liquidezCorrente >= 1.0 ? 'badge-warning' : 'badge-danger';
+
+  // Runway Estimado: dia em que o saldo projetado (via getLiquidityRunway,
+  // considerando títulos reais a vencer/já vencidos) fica negativo.
+  const runwayNegativeIndex = runway.findIndex(p => p.saldoProjetado < 0);
+  const runwayMonths = runwayNegativeIndex === -1 ? null : runwayNegativeIndex / 30;
+  const runwayLabel = runwayMonths === null ? '> 12 Meses' : `${runwayMonths.toFixed(1)} Meses`;
+  const runwayBadge = runwayMonths === null || runwayMonths > 6
+    ? 'badge-primary'
+    : runwayMonths >= 3 ? 'badge-warning' : 'badge-danger';
+  const runwayStatusLabel = runwayMonths === null || runwayMonths > 6
+    ? 'Sustentável'
+    : runwayMonths >= 3 ? 'Atenção' : 'Crítico';
+
+  // Ponto de Equilíbrio real (margem de contribuição), vindo de getFinancialHealthAnalysis.
+  const breakEvenAlcancado = health ? health.breakEven.safetyMarginValue >= 0 : null;
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
@@ -766,37 +831,42 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
                   <div className="text-xs font-semibold text-muted">ÍNDICE DE LIQUIDEZ</div>
-                  <div className="text-base font-bold text-primary mt-0.5">2.28 (Excelente)</div>
+                  <div className="text-base font-bold text-primary mt-0.5">
+                    {liquidezCorrente === null ? '—' : liquidezCorrente.toFixed(2)} ({liquidezLabel})
+                  </div>
                 </div>
-                <span className="badge badge-success">Saudável</span>
+                <span className={`badge ${liquidezBadge}`}>{liquidezLabel}</span>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
                   <div className="text-xs font-semibold text-muted">RUNWAY ESTIMADO</div>
-                  <div className="text-base font-bold text-primary mt-0.5">8.4 Meses</div>
+                  <div className="text-base font-bold text-primary mt-0.5">{runwayLabel}</div>
                 </div>
-                <span className="badge badge-primary">Sustentável</span>
+                <span className={`badge ${runwayBadge}`}>{runwayStatusLabel}</span>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
                   <div className="text-xs font-semibold text-muted">PONTO DE EQUILÍBRIO</div>
                   <div className="text-base font-bold text-primary mt-0.5">
-                    R$ {(computedMetrics.pagarMes * 1.15).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                    {health ? `R$ ${health.breakEven.breakEvenPoint.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : '—'}
                   </div>
                 </div>
-                <span className="badge badge-purple">Alcançado</span>
+                <span className={`badge ${breakEvenAlcancado ? 'badge-success' : 'badge-warning'}`}>
+                  {breakEvenAlcancado === null ? '—' : breakEvenAlcancado ? 'Alcançado' : 'Não Alcançado'}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-muted">
-            <span>Última sincronização: <strong>Hoje às 23:48</strong></span>
+            <span>Última sincronização: <strong>{lastSyncAt ? formatSyncLabel(lastSyncAt) : '—'}</strong></span>
             <button
               type="button"
               className="text-primary hover:underline font-semibold"
               style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              onClick={() => setRetryCount(c => c + 1)}
             >
               Atualizar
             </button>
