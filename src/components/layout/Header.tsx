@@ -13,14 +13,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="header">
       {/* Seletor de Cliente / Empresa */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 header-brand-group">
         <button type="button" className="menu-toggle" onClick={onMenuClick} aria-label="Abrir menu de navegação">
           <Menu size={22} />
         </button>
 
         <div className="custom-select-container">
           <Building2 size={18} className="text-primary" />
-          <select 
+          <select
             className="custom-select"
             value={selectedCompany.id}
             onChange={(e) => setSelectedCompanyId(e.target.value)}
@@ -33,13 +33,13 @@ export function Header({ onMenuClick }: HeaderProps) {
           </select>
           <ChevronDown size={16} className="text-muted" />
         </div>
-        
-        <span className="badge badge-success">
+
+        <span className="badge badge-success header-status-badge">
           <ShieldCheck size={12} />
           {selectedCompany.status}
         </span>
       </div>
-      
+
       {/* Busca e Perfil */}
       <div className="header-actions">
         <div className="header-search">
@@ -64,7 +64,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <div className="user-profile cursor-pointer">
           <div className="avatar">HG</div>
-          <div>
+          <div className="user-profile-info">
             <div className="text-sm font-semibold">Harlani Gestão</div>
             <div className="text-xs text-muted">Consultoria & BPO Financeiro</div>
           </div>

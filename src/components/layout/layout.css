@@ -149,8 +149,51 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0 2rem;
   z-index: 5;
+}
+
+/* min-width:0 é o que realmente permite um filho flex encolher abaixo do
+   tamanho do seu conteúdo — sem isso, o <select> com o nome+CNPJ completo da
+   empresa força o header inteiro a estourar a largura da tela, empurrando
+   busca/sino/avatar pra fora (era exatamente o bug do print: 1039px de
+   conteúdo dentro de uma viewport de 375px). */
+.header-brand-group {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.custom-select-container {
+  min-width: 0;
+}
+
+.custom-select {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .header {
+    padding: 0 1rem;
+  }
+}
+
+/* Busca, selo "Ativa" e nome/cargo do usuário são secundários — cedem espaço
+   pro essencial (menu, seletor de empresa, sino) sempre que a largura real
+   do header aperta. Esse limiar (1279px) é maior que o breakpoint da sidebar
+   (1023px) de propósito: entre 1024-1279px a sidebar já está visível de novo
+   consumindo 260px, e medido via DOM o nome do usuário só para de quebrar em
+   2 linhas a partir de 1280px — testar aqui antes de mudar esse número. */
+@media (max-width: 1279px) {
+  .header-search,
+  .header-status-badge,
+  .user-profile-info {
+    display: none;
+  }
 }
 
 .header-search input {
