@@ -775,7 +775,12 @@ export const getClientData = async (companyId: string) => {
   }
 };
 
-export const getDREData = async (companyId: string, period: string = '2026-ytd'): Promise<DREData> => {
+export const getDREData = async (
+  companyId: string,
+  period: string = '2026-ytd',
+  customStartDate?: string,
+  customEndDate?: string
+): Promise<DREData> => {
   const clientData = await getClientData(companyId);
   const txs = clientData.transactions;
 
@@ -786,6 +791,11 @@ export const getDREData = async (companyId: string, period: string = '2026-ytd')
   // Filtrar apenas transações pagas/realizadas e aplicar o filtro de período
   const paidTxs = txs.filter(t => {
     if (t.status !== 'pago' || t.tag === 'TRANSFERENCIA_INTERNA' || t.tag === 'INVESTIMENTO_NAO_OPERACIONAL') return false;
+
+    if (period === 'custom' && customStartDate && customEndDate) {
+      const txDate = t.date ? t.date.substring(0, 10) : '';
+      return txDate >= customStartDate && txDate <= customEndDate;
+    }
 
     const d = parseLocalDate(t.date);
     if (period === '2026-m') {

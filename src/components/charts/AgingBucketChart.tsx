@@ -8,7 +8,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  ReferenceLine
 } from 'recharts';
 import { AgingBucketItem } from '@/lib/api/niboClient';
 
@@ -30,9 +31,30 @@ export function AgingBucketChart({ data, height = 280 }: Readonly<AgingBucketCha
     (max, item) => Math.max(max, item.faixa0a30 + item.faixa31a60 + item.faixa61a90 + item.faixa90mais),
     0
   );
+  const isAllClear = maxTotal === 0;
 
   return (
-    <div style={{ height: `${height}px`, width: '100%' }}>
+    <div style={{ height: `${height}px`, width: '100%', position: 'relative' }}>
+      {/* Sem esse selo, 6 meses zerados renderizam como uma caixa vazia — "sem
+          dado" — em vez de "tudo em dia". Sobrepomos a mensagem direto no
+          gráfico, não só na legenda de texto acima dele. */}
+      {isAllClear && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '38%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 2,
+            pointerEvents: 'none'
+          }}
+        >
+          <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', boxShadow: 'var(--shadow-md)' }}>
+            ✓ Sem atrasos em 6 meses
+          </span>
+        </div>
+      )}
+
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data as AgingBucketItem[]} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -55,6 +77,8 @@ export function AgingBucketChart({ data, height = 280 }: Readonly<AgingBucketCha
             formatter={(value: any, name: any) => [`R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, String(name)]}
           />
           <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }} />
+
+          {isAllClear && <ReferenceLine y={0} stroke="var(--secondary)" strokeWidth={3} />}
 
           <Bar dataKey="faixa0a30" name="0-30 dias" stackId="aging" fill="var(--warning)" radius={[0, 0, 0, 0]} barSize={32} />
           <Bar dataKey="faixa31a60" name="31-60 dias" stackId="aging" fill="#f97316" radius={[0, 0, 0, 0]} barSize={32} />

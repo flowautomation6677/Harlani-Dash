@@ -71,6 +71,7 @@ input, select, textarea { font-family: inherit; }
 .flex-col { display: flex; flex-direction: column; }
 .flex-1 { flex: 1 1 0%; }
 .flex-wrap { flex-wrap: wrap; }
+.grid { display: grid; }
 
 .items-center { align-items: center; }
 .items-start { align-items: flex-start; }

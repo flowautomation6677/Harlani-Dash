@@ -14,17 +14,18 @@ import {
 import { exportFinancialsToExcel, exportFinancialsToCSV } from '@/lib/utils/exportToExcel';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PeriodFilterTabs } from '@/components/ui/PeriodFilterTabs';
+import { getPartialIndex, withPartialSplit } from '@/lib/utils/partialPeriod';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { 
-  ArrowDownRight, 
-  ArrowUpRight, 
-  Wallet, 
-  TrendingUp, 
-  AlertCircle, 
-  Download, 
-  Plus, 
-  Building2, 
-  Calendar as CalendarIcon,
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Wallet,
+  TrendingUp,
+  AlertCircle,
+  Download,
+  Plus,
+  Building2,
   Activity,
   X,
   CheckCircle2,
@@ -34,6 +35,40 @@ import {
   Landmark,
   Layers
 } from 'lucide-react';
+
+const MONTH_ABBR_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+function getDefaultCustomRange() {
+  const now = new Date();
+  const endDate = now.toISOString().slice(0, 10);
+  const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  return { startDate, endDate };
+}
+
+// Constrói a série do gráfico a partir das MESMAS transações já filtradas
+// pelo período selecionado (recebidas como parâmetro) — nunca a partir de um
+// agregado separado que ignore o filtro. Diário para janelas curtas (Mês
+// Atual/Personalizado curto), mensal para janelas longas (Trimestre/Ano).
+function buildCashFlowSeries(txs: Transaction[], granularity: 'daily' | 'monthly') {
+  const map: Record<string, { receitas: number; despesas: number }> = {};
+
+  txs.forEach(t => {
+    if (t.status !== 'pago') return;
+    const key = granularity === 'daily' ? t.date : t.date.slice(0, 7);
+    if (!map[key]) map[key] = { receitas: 0, despesas: 0 };
+    if (t.type === 'receita') map[key].receitas += t.value;
+    else map[key].despesas += t.value;
+  });
+
+  return Object.keys(map).sort().map(key => {
+    const label = granularity === 'daily'
+      ? `${key.slice(8, 10)}/${key.slice(5, 7)}`
+      : MONTH_ABBR_PT[Number(key.slice(5, 7)) - 1];
+    const receitas = Math.round(map[key].receitas * 100) / 100;
+    const despesas = Math.round(map[key].despesas * 100) / 100;
+    return { key, name: label, receitas, despesas, lucro: Math.round((receitas - despesas) * 100) / 100 };
+  });
+}
 
 export default function DashboardPage() {
   const { selectedCompany } = useCompany();
@@ -47,16 +82,15 @@ export default function DashboardPage() {
 
   // Estado do Filtro de Período
   const [period, setPeriod] = useState<'30d' | '90d' | 'year' | 'custom'>('30d');
-  const [startDate, setStartDate] = useState('2026-08-01');
-  const [endDate, setEndDate] = useState('2026-08-31');
-  
+  const [{ startDate, endDate }, setCustomRange] = useState(getDefaultCustomRange);
+
   const [chartView, setChartView] = useState<'all' | 'lucro'>('all');
-  
+
   // Estado dos Modais e Menus
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportToastMessage, setExportToastMessage] = useState<string | null>(null);
-  
+
   // Formulário do Novo Lançamento
   const [newForm, setNewForm] = useState({
     type: 'receita' as 'receita' | 'despesa',
@@ -64,7 +98,7 @@ export default function DashboardPage() {
     value: '',
     category: 'SaaS Subscriptions',
     clientSupplier: '',
-    date: '2026-08-24',
+    date: new Date().toISOString().slice(0, 10),
     status: 'pago' as 'pago' | 'pendente'
   });
 
@@ -97,19 +131,20 @@ export default function DashboardPage() {
   const { filteredTransactions, computedMetrics, displayCashFlow } = useMemo(() => {
     if (!data) return { filteredTransactions: [], computedMetrics: null, displayCashFlow: [] };
 
-    let minDate = '2026-08-01';
-    let maxDate = '2026-08-31';
+    const now = new Date();
+    let minDate: string;
+    let maxDate: string;
 
     if (period === '30d') {
-      minDate = '2026-08-01';
-      maxDate = '2026-08-31';
+      minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      maxDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
     } else if (period === '90d') {
-      minDate = '2026-06-01';
-      maxDate = '2026-08-31';
+      minDate = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().slice(0, 10);
+      maxDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
     } else if (period === 'year') {
-      minDate = '2026-01-01';
-      maxDate = '2026-12-31';
-    } else if (period === 'custom') {
+      minDate = `${now.getFullYear()}-01-01`;
+      maxDate = `${now.getFullYear()}-12-31`;
+    } else {
       minDate = startDate;
       maxDate = endDate;
     }
@@ -136,16 +171,18 @@ export default function DashboardPage() {
       previsao30dias: saldoCalculado + (receitasPendentes - despesasPendentes)
     };
 
-    // 3. Ajustar Gráfico de Acordo com Período
-    let cashFlowSlice = data.cashFlow;
-    if (period === '30d') cashFlowSlice = data.cashFlow.slice(-2);
-    else if (period === '90d') cashFlowSlice = data.cashFlow.slice(-4);
-    else if (period === 'year') cashFlowSlice = data.cashFlow;
+    // 3. Construir a série do gráfico a partir das MESMAS transações filtradas
+    // acima (nunca do agregado data.cashFlow, que cobre o ano inteiro e por
+    // isso ignorava o filtro Personalizado). Diário para janelas curtas,
+    // mensal para janelas longas.
+    const spanDays = (new Date(maxDate).getTime() - new Date(minDate).getTime()) / 86400000;
+    const granularity: 'daily' | 'monthly' = spanDays <= 62 ? 'daily' : 'monthly';
+    const displayCashFlow = buildCashFlowSeries(txs, granularity);
 
     return {
       filteredTransactions: txs.length > 0 ? txs : data.transactions, // Fallback se não houver registros no range
       computedMetrics,
-      displayCashFlow: cashFlowSlice
+      displayCashFlow
     };
   }, [data, period, startDate, endDate]);
 
@@ -229,30 +266,41 @@ export default function DashboardPage() {
       value: '',
       category: 'SaaS Subscriptions',
       clientSupplier: '',
-      date: '2026-08-24',
+      date: new Date().toISOString().slice(0, 10),
       status: 'pago'
     });
     setIsModalOpen(false);
   };
 
   // Descrição do Período Formatada
+  const currentYear = new Date().getFullYear();
+  const currentMonthLabelRaw = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  const currentMonthLabel = currentMonthLabelRaw.charAt(0).toUpperCase() + currentMonthLabelRaw.slice(1);
+
   let periodDescription = `Personalizado (${startDate} a ${endDate})`;
   if (period === '30d') {
-    periodDescription = 'Este Mês (Agosto 2026)';
+    periodDescription = `Mês Atual (${currentMonthLabel})`;
   } else if (period === '90d') {
-    periodDescription = 'Trimestre (Jun-Ago 2026)';
+    periodDescription = 'Trimestre (últimos 3 meses)';
   } else if (period === 'year') {
-    periodDescription = 'Ano 2026';
+    periodDescription = `Ano ${currentYear}`;
   }
 
   let periodFilterSummary = `${startDate} a ${endDate}`;
   if (period === '30d') {
-    periodFilterSummary = 'Este Mês';
+    periodFilterSummary = 'Mês Atual';
   } else if (period === '90d') {
     periodFilterSummary = 'Trimestre';
   } else if (period === 'year') {
-    periodFilterSummary = 'Ano 2026';
+    periodFilterSummary = `Ano ${currentYear}`;
   }
+
+  // Item 4: o último ponto de uma série temporal cujo período ainda está em
+  // andamento (mês corrente) sempre despenca visualmente por ter menos dados
+  // acumulados — não é uma queda real. Renderiza esse trecho com estilo
+  // diferente (tracejado, opacidade menor) em vez de deixar como se fosse.
+  const cashFlowPartialIndex = getPartialIndex(displayCashFlow, (item) => item.key);
+  const chartData = withPartialSplit(displayCashFlow, ['receitas', 'despesas', 'lucro'], cashFlowPartialIndex);
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
@@ -305,56 +353,20 @@ export default function DashboardPage() {
           )}
 
           {/* Seletor de Período Funcional */}
-          <div className="tabs-container">
-            <button 
-              type="button"
-              className={`tab-btn ${period === '30d' ? 'active' : ''}`}
-              onClick={() => setPeriod('30d')}
-            >
-              Este Mês
-            </button>
-            <button 
-              type="button"
-              className={`tab-btn ${period === '90d' ? 'active' : ''}`}
-              onClick={() => setPeriod('90d')}
-            >
-              Trimestre
-            </button>
-            <button 
-              type="button"
-              className={`tab-btn ${period === 'year' ? 'active' : ''}`}
-              onClick={() => setPeriod('year')}
-            >
-              Ano 2026
-            </button>
-            <button 
-              type="button"
-              className={`tab-btn ${period === 'custom' ? 'active' : ''}`}
-              onClick={() => setPeriod('custom')}
-            >
-              Personalizado
-            </button>
-          </div>
-
-          {/* Inputs de Data quando "Personalizado" estiver selecionado */}
-          {period === 'custom' && (
-            <div className="flex items-center gap-2 bg-gray-50 p-1.5 px-3 rounded-lg border border-gray-200 animate-fade-in">
-              <CalendarIcon size={16} className="text-primary" />
-              <input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)}
-                className="text-xs border-none bg-transparent font-semibold outline-none cursor-pointer"
-              />
-              <span className="text-xs text-muted">até</span>
-              <input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)}
-                className="text-xs border-none bg-transparent font-semibold outline-none cursor-pointer"
-              />
-            </div>
-          )}
+          <PeriodFilterTabs
+            options={[
+              { value: '30d', label: 'Mês Atual' },
+              { value: '90d', label: 'Trimestre' },
+              { value: 'year', label: `Ano ${currentYear}` },
+              { value: 'custom', label: 'Personalizado' }
+            ]}
+            value={period}
+            onChange={(v) => setPeriod(v as typeof period)}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={(v) => setCustomRange({ startDate: v, endDate })}
+            onEndDateChange={(v) => setCustomRange({ startDate, endDate: v })}
+          />
 
           {/* Menu Dropdown de Exportação */}
           <div className="relative">
@@ -676,7 +688,12 @@ export default function DashboardPage() {
           <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
             <div>
               <h3 className="font-bold text-lg">Evolução do Fluxo de Caixa</h3>
-              <p className="text-xs text-muted">Exibindo período: <strong>{periodDescription}</strong></p>
+              <p className="text-xs text-muted">
+                Exibindo período: <strong>{periodDescription}</strong>
+                {cashFlowPartialIndex !== null && (
+                  <span className="text-warning font-semibold"> • último ponto ainda em andamento</span>
+                )}
+              </p>
             </div>
 
             <div className="tabs-container">
@@ -699,7 +716,7 @@ export default function DashboardPage() {
 
           <div style={{ height: '320px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={displayCashFlow} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorReceitas" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.4}/>
@@ -717,20 +734,23 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `R$${val/1000}k`} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-lg)' }}
-                  formatter={(value: any) => [`R$ ${Number(value || 0).toLocaleString('pt-BR')}`, '']}
+                  formatter={(value: any, name: any) => [`R$ ${Number(value || 0).toLocaleString('pt-BR')}`, name]}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '15px' }} />
-                
+
                 {chartView === 'all' && (
                   <>
                     <Area type="monotone" dataKey="receitas" name="Receitas (+)" stroke="var(--secondary)" strokeWidth={3} fillOpacity={1} fill="url(#colorReceitas)" />
+                    <Area type="monotone" dataKey="receitasParcial" name="Receitas (+) — em andamento" stroke="var(--secondary)" strokeWidth={2} strokeDasharray="6 4" fillOpacity={0.15} fill="var(--secondary)" legendType="none" />
                     <Area type="monotone" dataKey="despesas" name="Despesas (-)" stroke="var(--danger)" strokeWidth={3} fillOpacity={1} fill="url(#colorDespesas)" />
+                    <Area type="monotone" dataKey="despesasParcial" name="Despesas (-) — em andamento" stroke="var(--danger)" strokeWidth={2} strokeDasharray="6 4" fillOpacity={0.15} fill="var(--danger)" legendType="none" />
                   </>
                 )}
-                
+
                 <Area type="monotone" dataKey="lucro" name="Lucro Líquido" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
+                <Area type="monotone" dataKey="lucroParcial" name="Lucro Líquido — em andamento" stroke="var(--primary)" strokeWidth={2} strokeDasharray="6 4" fillOpacity={0.15} fill="var(--primary)" legendType="none" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -825,13 +845,22 @@ export default function DashboardPage() {
                     statusLabel = 'Atrasado';
                   }
 
+                  const isNonOperational = t.tag === 'INVESTIMENTO_NAO_OPERACIONAL' || t.tag === 'TRANSFERENCIA_INTERNA';
+
                   return (
                     <tr key={t.id}>
                       <td>
                         <div className="font-semibold text-sm">{t.description}</div>
-                        <span className="badge badge-primary text-xs mt-1" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}>
-                          {t.category}
-                        </span>
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          <span className="badge badge-primary text-xs" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}>
+                            {t.category}
+                          </span>
+                          {isNonOperational && (
+                            <span className="badge badge-purple text-xs" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}>
+                              Não operacional
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="text-secondary font-medium text-sm">
                         {t.clientSupplier}

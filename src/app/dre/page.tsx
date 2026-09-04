@@ -2,27 +2,77 @@
 
 import { useEffect, useState } from 'react';
 import { useCompany } from '@/context/CompanyContext';
-import { 
-  getDREData, 
-  getFinancialHealthAnalysis, 
-  DREData, 
-  FinancialHealthAnalysis 
+import {
+  getDREData,
+  getFinancialHealthAnalysis,
+  getCashFlowData,
+  DREData,
+  FinancialHealthAnalysis,
+  DetailedCashFlowData
 } from '@/lib/api/niboClient';
 import { EbitdaEvolutionChart } from '@/components/charts/EbitdaEvolutionChart';
+import { CashFlowBarChart } from '@/components/charts/CashFlowBarChart';
 import { DreWaterfallChart, WaterfallView } from '@/components/charts/DreWaterfallChart';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { 
-  Printer, 
-  PieChart as PieIcon, 
+import { PeriodFilterTabs } from '@/components/ui/PeriodFilterTabs';
+import {
+  Printer,
+  PieChart as PieIcon,
   FileSpreadsheet,
-  Info
+  Info,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
-function getPeriodDescription(period: string) {
+function getDefaultSelectedMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getMonthRange(monthStr: string) {
+  const [year, month] = monthStr.split('-').map(Number);
+  const startDate = `${monthStr}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+  return { startDate, endDate };
+}
+
+function formatMonthLabel(monthStr: string): string {
+  const [year, month] = monthStr.split('-').map(Number);
+  const label = new Date(year, month - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function getPeriodDescription(period: string, startDate?: string, endDate?: string, selectedMonth?: string) {
   if (period === '2026-m') return 'Mês Atual';
-  if (period === '2026-q') return 'Último Trimestre';
-  return 'Ano YTD';
+  if (period === 'month-specific') return formatMonthLabel(selectedMonth || getDefaultSelectedMonth());
+  if (period === '2026-q') return 'Trimestre';
+  if (period === 'custom') return `Personalizado (${startDate} a ${endDate})`;
+  return `Ano ${new Date().getFullYear()}`;
+}
+
+function getDefaultCustomRange() {
+  const now = new Date();
+  const endDate = now.toISOString().slice(0, 10);
+  const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  return { startDate, endDate };
+}
+
+// Períodos curtos (dias/semanas) só servem para ler liquidez imediata — EBITDA
+// e margens exigem um ciclo mensal completo para significar algo. Por isso um
+// recorte Personalizado com menos de 1 mês troca o gráfico de EBITDA por
+// Movimentação de Caixa automaticamente, sem o usuário precisar pedir.
+function isShortRange(period: string, startDate: string, endDate: string): boolean {
+  if (period !== 'custom') return false;
+  const diffDays = (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000;
+  return diffDays < 30;
+}
+
+// Um mês fechado (atual ou específico) não tem "evolução" própria para
+// desenhar em linha do tempo — só faz sentido mostrar o resultado consolidado
+// daquele mês em destaque, não uma quebra semanal disfarçada de série temporal.
+function isWholeMonth(period: string): boolean {
+  return period === '2026-m' || period === 'month-specific';
 }
 
 function getItemRowStyle(item: { type: string; isBold?: boolean }) {
@@ -57,34 +107,50 @@ export default function DREPage() {
   const { selectedCompany } = useCompany();
   const [dre, setDre] = useState<DREData | null>(null);
   const [health, setHealth] = useState<FinancialHealthAnalysis | null>(null);
+  const [cashFlow, setCashFlow] = useState<DetailedCashFlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('2026-ytd');
   const [searchTerm, setSearchTerm] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const [waterfallView, setWaterfallView] = useState<WaterfallView>('bpo');
+  const [{ startDate, endDate }, setCustomRange] = useState(getDefaultCustomRange);
+  const [selectedMonth, setSelectedMonth] = useState(getDefaultSelectedMonth);
+  const showCashFlowInsteadOfEbitda = isShortRange(period, startDate, endDate);
+  const showMonthHighlightInsteadOfEbitda = isWholeMonth(period);
+
+  // "Mês Específico" é só uma forma de UI de escolher um recorte 'custom' —
+  // reaproveita o mesmo filtro de intervalo de datas que já existe, sem exigir
+  // um novo tipo de período no cliente da API.
+  const effectiveApiPeriod = period === 'month-specific' ? 'custom' : period;
+  const { startDate: effectiveStart, endDate: effectiveEnd } = period === 'month-specific'
+    ? getMonthRange(selectedMonth)
+    : { startDate, endDate };
 
   useEffect(() => {
     async function loadDRE() {
       setLoading(true);
       setError(null);
       try {
-        const [dreData, healthData] = await Promise.all([
-          getDREData(selectedCompany.id, period),
-          getFinancialHealthAnalysis(selectedCompany.id, period)
+        const [dreData, healthData, cashFlowData] = await Promise.all([
+          getDREData(selectedCompany.id, effectiveApiPeriod, effectiveStart, effectiveEnd),
+          getFinancialHealthAnalysis(selectedCompany.id, effectiveApiPeriod, effectiveStart, effectiveEnd),
+          isShortRange(period, startDate, endDate) ? getCashFlowData(selectedCompany.id) : Promise.resolve(null)
         ]);
         setDre(dreData);
         setHealth(healthData);
+        setCashFlow(cashFlowData);
       } catch (err) {
         setDre(null);
         setHealth(null);
+        setCashFlow(null);
         setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar o Nibo.');
       } finally {
         setLoading(false);
       }
     }
     loadDRE();
-  }, [selectedCompany.id, period, retryCount]);
+  }, [selectedCompany.id, period, startDate, endDate, effectiveApiPeriod, effectiveStart, effectiveEnd, retryCount]);
 
   const handleExport = async () => {
     try {
@@ -98,7 +164,7 @@ export default function DREPage() {
         metrics: fullData.metrics,
         cashFlow: fullData.cashFlow,
         transactions: fullData.transactions,
-        period: `DRE Analítico Harlani Gestão (${getPeriodDescription(period)})`
+        period: `DRE Analítico Harlani Gestão (${getPeriodDescription(period, startDate, endDate, selectedMonth)})`
       });
     } catch (e) {
       console.error("Erro ao exportar o DRE:", e);
@@ -140,29 +206,33 @@ export default function DREPage() {
 
         {/* Controles de Período e Exportação */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="tabs-container">
-            <button 
-              type="button"
-              className={`tab-btn ${period === '2026-m' ? 'active' : ''}`}
-              onClick={() => setPeriod('2026-m')}
-            >
-              Mês Atual
-            </button>
-            <button 
-              type="button"
-              className={`tab-btn ${period === '2026-q' ? 'active' : ''}`}
-              onClick={() => setPeriod('2026-q')}
-            >
-              Último Trimestre
-            </button>
-            <button 
-              type="button"
-              className={`tab-btn ${period === '2026-ytd' ? 'active' : ''}`}
-              onClick={() => setPeriod('2026-ytd')}
-            >
-              Ano 2026 (YTD)
-            </button>
-          </div>
+          <PeriodFilterTabs
+            options={[
+              { value: '2026-m', label: 'Mês Atual' },
+              { value: 'month-specific', label: 'Mês Específico' },
+              { value: '2026-q', label: 'Trimestre' },
+              { value: '2026-ytd', label: `Ano ${new Date().getFullYear()}` },
+              { value: 'custom', label: 'Personalizado' }
+            ]}
+            value={period}
+            onChange={(v) => setPeriod(v)}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={(v) => setCustomRange({ startDate: v, endDate })}
+            onEndDateChange={(v) => setCustomRange({ startDate, endDate: v })}
+          />
+
+          {period === 'month-specific' && (
+            <div className="flex items-center gap-2 bg-gray-50 p-1.5 px-3 rounded-lg border border-gray-200 animate-fade-in">
+              <CalendarIcon size={16} className="text-primary" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="text-xs border-none bg-transparent font-semibold outline-none cursor-pointer"
+              />
+            </div>
+          )}
 
           <button type="button" className="btn btn-outline gap-2 text-xs" onClick={() => window.print()}>
             <Printer size={16} />
@@ -211,16 +281,73 @@ export default function DREPage() {
 
       {/* Gráficos: Evolução do EBITDA e Estrutura de DRE */}
       <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-        <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="font-bold text-base">Evolução Mensal do EBITDA</h3>
-              <p className="text-xs text-muted">Geração de caixa operacional ao longo do ano</p>
+        {showCashFlowInsteadOfEbitda ? (
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-bold text-base">Movimentação de Caixa (Realizado)</h3>
+                <p className="text-xs text-muted">Entradas e saídas diárias no período selecionado</p>
+              </div>
+              <span className="badge badge-success">Liquidez Imediata</span>
             </div>
-            <span className="badge badge-purple">Harlani Gestão</span>
+            <CashFlowBarChart
+              data={(cashFlow?.daily ?? []).filter(d => d.date >= startDate && d.date <= endDate)}
+              height={240}
+            />
           </div>
-          <EbitdaEvolutionChart data={health.ebitdaEvolution} height={240} />
-        </div>
+        ) : showMonthHighlightInsteadOfEbitda ? (
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-bold text-base">EBITDA do Mês Fechado</h3>
+                <p className="text-xs text-muted">
+                  Um único mês não tem evolução própria — aqui está o resultado consolidado do período
+                </p>
+              </div>
+              <span className="badge badge-purple">
+                {period === '2026-m' ? 'Mês Atual' : formatMonthLabel(selectedMonth)}
+              </span>
+            </div>
+
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="text-xs font-semibold text-muted mb-1">EBITDA</div>
+                <div className={`text-xl font-bold ${dre.ebitda >= 0 ? 'text-purple' : 'text-danger'}`}>
+                  R$ {dre.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="text-xs font-semibold text-muted mb-1">MARGEM EBITDA</div>
+                <div className={`text-xl font-bold ${health.margemEbitda >= 0 ? 'text-purple' : 'text-danger'}`}>
+                  {health.margemEbitda.toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="text-xs font-semibold text-muted mb-1">RECEITA LÍQUIDA</div>
+                <div className="text-xl font-bold text-primary">
+                  R$ {dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="text-xs font-semibold text-muted mb-1">LUCRO LÍQUIDO</div>
+                <div className={`text-xl font-bold ${dre.lucroLiquido >= 0 ? 'text-success' : 'text-danger'}`}>
+                  R$ {dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-bold text-base">Evolução Mensal do EBITDA</h3>
+                <p className="text-xs text-muted">Geração de caixa operacional ao longo do ano</p>
+              </div>
+              <span className="badge badge-purple">Harlani Gestão</span>
+            </div>
+            <EbitdaEvolutionChart data={health.ebitdaEvolution} height={240} />
+          </div>
+        )}
 
         {/* Resumo da Análise de DRE */}
         <div className="report-card report-card-purple">
