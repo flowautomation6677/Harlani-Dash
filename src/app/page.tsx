@@ -192,21 +192,25 @@ export default function DashboardPage() {
 
     // 2. Recalcular KPIs Financeiros com base nas transações do período
     const receitasPagas = txs.filter(t => t.type === 'receita' && t.status === 'pago').reduce((sum, t) => sum + t.value, 0);
-    const despesasPagas = txs.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((sum, t) => sum + t.value, 0);
-    
+
     const receitasPendentes = txs.filter(t => t.type === 'receita' && t.status === 'pendente').reduce((sum, t) => sum + t.value, 0);
     const despesasPendentes = txs.filter(t => t.type === 'despesa' && t.status === 'pendente').reduce((sum, t) => sum + t.value, 0);
 
-    const saldoCalculado = data.metrics.saldoAtual + (receitasPagas - despesasPagas);
+    // Saldo em Conta é uma variável de ESTOQUE (posição consolidada até hoje),
+    // não de fluxo — data.metrics.saldoAtual já é o valor correto e completo
+    // vindo de getClientData(). Somar de novo o fluxo pago do período aqui
+    // duplicava contas já embutidas nesse saldo sempre que a janela
+    // selecionada (ex: Ano) cobria o mesmo intervalo já somado lá.
+    const saldoAtual = data.metrics.saldoAtual;
 
     const computedMetrics: ClientMetrics = {
-      saldoAtual: saldoCalculado,
+      saldoAtual,
       receberMes: receitasPendentes > 0 ? receitasPendentes : data.metrics.receberMes,
       pagarMes: despesasPendentes > 0 ? despesasPendentes : data.metrics.pagarMes,
       ticketMedio: txs.length > 0 ? Math.round((receitasPagas + receitasPendentes) / (txs.length || 1)) : data.metrics.ticketMedio,
       taxaInadimplencia: data.metrics.taxaInadimplencia,
       margemOperacional: data.metrics.margemOperacional,
-      previsao30dias: saldoCalculado + (receitasPendentes - despesasPendentes)
+      previsao30dias: saldoAtual + (receitasPendentes - despesasPendentes)
     };
 
     // 3. Construir a série do gráfico a partir das MESMAS transações filtradas
