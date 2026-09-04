@@ -1152,7 +1152,7 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
       };
     });
 
-  const colorsIn = ['var(--success)', 'var(--primary)', 'var(--warning)', 'var(--purple)'];
+  const colorsIn = ['var(--secondary)', 'var(--primary)', 'var(--warning)', 'var(--purple)'];
   const colorsOut = ['var(--danger)', 'var(--warning)', 'var(--purple)', 'var(--secondary)'];
 
   // Agregar top categorias de entradas

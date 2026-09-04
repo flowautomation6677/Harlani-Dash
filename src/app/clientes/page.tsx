@@ -172,19 +172,22 @@ export default function ClientesFornecedoresPage() {
             {topClientes.map((c, i) => (
               <div key={c.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">
+                  <span
+                    className="text-xs font-bold flex items-center justify-center flex-shrink-0 text-success"
+                    style={{ width: '24px', height: '24px', borderRadius: '9999px', backgroundColor: 'var(--secondary-light)' }}
+                  >
                     {i + 1}
                   </span>
                   <div>
                     <div className="font-semibold text-xs text-secondary">{c.name}</div>
-                    <div className="text-[11px] text-muted font-mono">{c.documentNumber}</div>
+                    <div className="text-xs text-muted font-mono" style={{ fontSize: '0.6875rem' }}>{c.documentNumber}</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-xs text-success">
                     {c.totalValue && c.totalValue > 0 ? `R$ ${c.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Ativo'}
                   </div>
-                  <div className="text-[10px] text-muted">{c.countTransactions || 0} títulos</div>
+                  <div className="text-muted" style={{ fontSize: '0.625rem' }}>{c.countTransactions || 0} títulos</div>
                 </div>
               </div>
             ))}
@@ -201,19 +204,22 @@ export default function ClientesFornecedoresPage() {
             {topFornecedores.map((f, i) => (
               <div key={f.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center">
+                  <span
+                    className="text-xs font-bold flex items-center justify-center flex-shrink-0 text-danger"
+                    style={{ width: '24px', height: '24px', borderRadius: '9999px', backgroundColor: 'var(--danger-light)' }}
+                  >
                     {i + 1}
                   </span>
                   <div>
                     <div className="font-semibold text-xs text-secondary">{f.name}</div>
-                    <div className="text-[11px] text-muted font-mono">{f.documentNumber}</div>
+                    <div className="text-xs text-muted font-mono" style={{ fontSize: '0.6875rem' }}>{f.documentNumber}</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-xs text-danger">
                     {f.totalValue && f.totalValue > 0 ? `R$ ${f.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Ativo'}
                   </div>
-                  <div className="text-[10px] text-muted">{f.countTransactions || 0} títulos</div>
+                  <div className="text-muted" style={{ fontSize: '0.625rem' }}>{f.countTransactions || 0} títulos</div>
                 </div>
               </div>
             ))}

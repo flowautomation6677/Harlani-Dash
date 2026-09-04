@@ -21,8 +21,16 @@ import {
   PieChart as PieIcon,
   FileSpreadsheet,
   Info,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Activity,
+  Percent,
+  ArrowUpRight,
+  CheckCircle2,
+  Receipt,
+  ShieldCheck,
+  Landmark
 } from 'lucide-react';
+import type { ComponentType } from 'react';
 
 function getDefaultSelectedMonth() {
   const now = new Date();
@@ -309,31 +317,49 @@ export default function DREPage() {
               </span>
             </div>
 
-            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-                <div className="text-xs font-semibold text-muted mb-1">EBITDA</div>
-                <div className={`text-xl font-bold ${dre.ebitda >= 0 ? 'text-purple' : 'text-danger'}`}>
-                  R$ {dre.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-                <div className="text-xs font-semibold text-muted mb-1">MARGEM EBITDA</div>
-                <div className={`text-xl font-bold ${health.margemEbitda >= 0 ? 'text-purple' : 'text-danger'}`}>
-                  {health.margemEbitda.toFixed(1)}%
-                </div>
-              </div>
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-                <div className="text-xs font-semibold text-muted mb-1">RECEITA LÍQUIDA</div>
-                <div className="text-xl font-bold text-primary">
-                  R$ {dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-                <div className="text-xs font-semibold text-muted mb-1">LUCRO LÍQUIDO</div>
-                <div className={`text-xl font-bold ${dre.lucroLiquido >= 0 ? 'text-success' : 'text-danger'}`}>
-                  R$ {dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginTop: '0.5rem' }}>
+              {([
+                {
+                  label: 'EBITDA',
+                  value: `R$ ${dre.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  icon: Activity,
+                  tone: dre.ebitda >= 0 ? 'purple' : 'danger'
+                },
+                {
+                  label: 'MARGEM EBITDA',
+                  value: `${health.margemEbitda.toFixed(1)}%`,
+                  icon: Percent,
+                  tone: health.margemEbitda >= 0 ? 'purple' : 'danger'
+                },
+                {
+                  label: 'RECEITA LÍQUIDA',
+                  value: `R$ ${dre.receitaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  icon: ArrowUpRight,
+                  tone: 'primary'
+                },
+                {
+                  label: 'LUCRO LÍQUIDO',
+                  value: `R$ ${dre.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  icon: CheckCircle2,
+                  tone: dre.lucroLiquido >= 0 ? 'success' : 'danger'
+                }
+              ] as { label: string; value: string; icon: ComponentType<{ size?: number; className?: string }>; tone: 'purple' | 'danger' | 'primary' | 'success' }[]).map(tile => {
+                const Icon = tile.icon;
+                const toneClass = `text-${tile.tone}`;
+                const toneBgVar = tile.tone === 'success' ? '--secondary-light' : `--${tile.tone}-light`;
+                const toneBg = `var(${toneBgVar})`;
+                return (
+                  <div key={tile.label} className="card" style={{ padding: '1rem' }}>
+                    <div className="flex justify-between items-start" style={{ marginBottom: '0.75rem' }}>
+                      <span className="text-xs font-semibold text-muted">{tile.label}</span>
+                      <div style={{ padding: '0.375rem', borderRadius: 'var(--radius-md)', backgroundColor: toneBg, lineHeight: 0 }}>
+                        <Icon size={14} className={toneClass} />
+                      </div>
+                    </div>
+                    <div className={`text-xl font-bold ${toneClass}`}>{tile.value}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -354,7 +380,7 @@ export default function DREPage() {
           <div>
             <div className="report-title">
               <Info size={18} className="report-icon" />
-              <span>Diagnóstico de Eficiência — Harlani Gestão</span>
+              <span>Diagnóstico de Eficiência — {selectedCompany.name}</span>
             </div>
 
             <p className="report-body" style={{ marginBottom: '1.25rem' }}>
@@ -362,20 +388,44 @@ export default function DREPage() {
             </p>
 
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <span className="text-muted">Despesas Fixas Mensais:</span>
-                <span className="font-semibold text-secondary">R$ {health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <span className="text-muted">Margem de Segurança (Break-Even):</span>
-                <span className="font-semibold text-success">+{health.breakEven.safetyMarginPercent.toFixed(1)}% acima da meta</span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs p-2 rounded" style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <span className="text-muted">Juros e Tarifas Financeiras:</span>
-                <span className="font-semibold text-danger">R$ {health.jurosFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {([
+                {
+                  label: 'Despesas Fixas Mensais:',
+                  value: `R$ ${health.breakEven.fixedExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  icon: Receipt,
+                  tone: 'neutral'
+                },
+                {
+                  label: 'Margem de Segurança (Break-Even):',
+                  value: `${health.breakEven.safetyMarginPercent >= 0 ? '+' : ''}${health.breakEven.safetyMarginPercent.toFixed(1)}% acima da meta`,
+                  icon: ShieldCheck,
+                  tone: health.breakEven.safetyMarginPercent >= 0 ? 'success' : 'danger'
+                },
+                {
+                  label: 'Juros e Tarifas Financeiras:',
+                  value: `R$ ${health.jurosFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  icon: Landmark,
+                  tone: 'danger'
+                }
+              ] as { label: string; value: string; icon: ComponentType<{ size?: number; className?: string }>; tone: 'neutral' | 'success' | 'danger' }[]).map(row => {
+                const Icon = row.icon;
+                const textClass = row.tone === 'neutral' ? 'text-secondary' : row.tone === 'success' ? 'text-success' : 'text-danger';
+                const iconClass = row.tone === 'neutral' ? 'text-primary' : textClass;
+                const iconBg = row.tone === 'neutral' ? 'var(--primary-light)' : row.tone === 'success' ? 'var(--secondary-light)' : 'var(--danger-light)';
+                return (
+                  <div
+                    key={row.label}
+                    className="flex items-center gap-3"
+                    style={{ padding: '0.625rem', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}
+                  >
+                    <div style={{ padding: '0.375rem', borderRadius: 'var(--radius-md)', backgroundColor: iconBg, lineHeight: 0, flexShrink: 0 }}>
+                      <Icon size={14} className={iconClass} />
+                    </div>
+                    <span className="text-xs text-muted flex-1">{row.label}</span>
+                    <span className={`text-xs font-semibold ${textClass}`}>{row.value}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
