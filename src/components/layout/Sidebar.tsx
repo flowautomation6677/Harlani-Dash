@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, PieChart, DollarSign, FileText, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Home, PieChart, DollarSign, FileText, Users, BarChart3, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { HarlaniLogo } from '@/components/brand/HarlaniLogo';
+import type { CurrentUser } from '@/lib/auth/types';
 
 interface SidebarProps {
   readonly isOpen?: boolean;
   readonly onNavigate?: () => void;
+  readonly currentUser?: CurrentUser | null;
 }
 
-export function Sidebar({ isOpen = false, onNavigate }: SidebarProps) {
+export function Sidebar({ isOpen = false, onNavigate, currentUser }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -66,6 +68,14 @@ export function Sidebar({ isOpen = false, onNavigate }: SidebarProps) {
               <span>Relatórios Mensais</span>
             </Link>
           </li>
+          {currentUser?.role === 'SUPER_ADMIN' && (
+            <li className={`nav-item ${pathname.startsWith('/admin') ? 'active' : ''}`}>
+              <Link href="/admin/tenants" className="nav-link">
+                <ShieldCheck size={20} />
+                <span>Administração</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CompanyProvider } from '@/context/CompanyContext';
+import type { CurrentUser } from '@/lib/auth/types';
 import './layout.css';
 
 interface DashboardLayoutProps {
@@ -12,11 +13,19 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setCurrentUser(data?.user ?? null))
+      .catch(() => setCurrentUser(null));
+  }, []);
 
   return (
-    <CompanyProvider>
+    <CompanyProvider tenant={currentUser?.tenant}>
       <div className="dashboard-container">
-        <Sidebar isOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} />
+        <Sidebar isOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} currentUser={currentUser} />
         {isSidebarOpen && (
           <button
             type="button"
@@ -26,7 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           />
         )}
         <div className="main-content">
-          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <Header onMenuClick={() => setIsSidebarOpen(true)} currentUser={currentUser} />
           <main className="content-area">
             {children}
           </main>

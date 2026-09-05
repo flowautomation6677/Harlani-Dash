@@ -10,12 +10,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, include: { tenant: true } });
   if (!user) {
     return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
   }
 
   return NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenant: user.tenant
+        ? { id: user.tenant.id, name: user.tenant.name, document: user.tenant.document, isActive: user.tenant.isActive }
+        : null,
+    },
   });
 }

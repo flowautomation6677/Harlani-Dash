@@ -30,7 +30,7 @@ export default function FluxoDeCaixaPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getCashFlowData(selectedCompany.id);
+        const data = await getCashFlowData();
         setDfc(data);
       } catch (err) {
         setDfc(null);
@@ -118,7 +118,7 @@ export default function FluxoDeCaixaPage() {
       const { getClientData } = await import('@/lib/api/niboClient');
       const { exportFinancialsToExcel } = await import('@/lib/utils/exportToExcel');
       
-      const fullData = await getClientData(selectedCompany.id);
+      const fullData = await getClientData();
       exportFinancialsToExcel({
         company: selectedCompany,
         metrics: fullData.metrics,

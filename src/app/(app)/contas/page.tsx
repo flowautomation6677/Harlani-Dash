@@ -59,9 +59,9 @@ export default function ContasPage() {
       setError(null);
       try {
         const [res, aging, runwayPoints] = await Promise.all([
-          getAccountsSummary(selectedCompany.id),
-          getAgingHistory(selectedCompany.id, 6),
-          getLiquidityRunway(selectedCompany.id, 60)
+          getAccountsSummary(),
+          getAgingHistory(6),
+          getLiquidityRunway(60)
         ]);
         setData(res);
         setAgingHistory(aging);

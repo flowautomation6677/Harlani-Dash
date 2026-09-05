@@ -34,7 +34,7 @@ export default function ClientesFornecedoresPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await getStakeholders(selectedCompany.id);
+        const res = await getStakeholders();
         setStakeholders(res);
       } catch (err) {
         setStakeholders([]);

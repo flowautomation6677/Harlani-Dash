@@ -1,29 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Bell, Search, Building2, ChevronDown, ShieldCheck, Menu } from 'lucide-react';
+import { Bell, Search, Building2, ShieldCheck, Menu } from 'lucide-react';
 import { useCompany } from '@/context/CompanyContext';
+import type { CurrentUser } from '@/lib/auth/types';
 
 interface HeaderProps {
   readonly onMenuClick?: () => void;
+  readonly currentUser?: CurrentUser | null;
 }
 
-interface CurrentUser {
-  name: string | null;
-  email: string;
-  role: 'SUPER_ADMIN' | 'CLIENT';
-}
-
-export function Header({ onMenuClick }: HeaderProps) {
-  const { selectedCompany, setSelectedCompanyId, companies } = useCompany();
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setCurrentUser(data?.user ?? null))
-      .catch(() => setCurrentUser(null));
-  }, []);
+export function Header({ onMenuClick, currentUser }: HeaderProps) {
+  const { selectedCompany } = useCompany();
+  const isAdminWithoutTenant = currentUser?.role === 'SUPER_ADMIN' && !currentUser.tenant;
 
   const displayName = currentUser?.name || currentUser?.email || 'Harlani Gestão';
   const initials = displayName
@@ -35,32 +23,36 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="header">
-      {/* Seletor de Cliente / Empresa */}
+      {/* Tenant do usuário logado — cada usuário pertence a um único tenant,
+          não existe mais seletor: quem troca de "empresa" é logando com
+          outra conta. */}
       <div className="flex items-center gap-3 header-brand-group">
         <button type="button" className="menu-toggle" onClick={onMenuClick} aria-label="Abrir menu de navegação">
           <Menu size={22} />
         </button>
 
-        <div className="custom-select-container">
-          <Building2 size={18} className="text-primary" />
-          <select
-            className="custom-select"
-            value={selectedCompany.id}
-            onChange={(e) => setSelectedCompanyId(e.target.value)}
-          >
-            {companies.map(company => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.cnpj})
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={16} className="text-muted" />
-        </div>
+        {isAdminWithoutTenant ? (
+          <div className="custom-select-container">
+            <ShieldCheck size={18} className="text-primary" />
+            <span className="custom-select" style={{ cursor: 'default' }}>
+              Painel de Administração
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="custom-select-container">
+              <Building2 size={18} className="text-primary" />
+              <span className="custom-select" style={{ cursor: 'default' }}>
+                {selectedCompany.name} ({selectedCompany.cnpj})
+              </span>
+            </div>
 
-        <span className="badge badge-success header-status-badge">
-          <ShieldCheck size={12} />
-          {selectedCompany.status}
-        </span>
+            <span className={`badge ${selectedCompany.status === 'Ativa' ? 'badge-success' : 'badge-danger'} header-status-badge`}>
+              <ShieldCheck size={12} />
+              {selectedCompany.status}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Busca e Perfil */}

@@ -1,9 +1,10 @@
 // scripts/seed-dev-tenants.mjs
 //
-// Seed de desenvolvimento para a Fase 3 (multi-tenant): cria os dois tenants
-// reais do projeto (Harlani Rodrigues / Cursos GHF), um usuário CLIENT por
-// tenant, e vincula a IntegrationConfig do Nibo usando os tokens que já
-// estavam soltos no .env.local (agora criptografados no banco).
+// Seed de desenvolvimento multi-tenant: cria os dois tenants reais do
+// projeto (Harlani Rodrigues / Cursos GHF), um usuário CLIENT por tenant, um
+// usuário SUPER_ADMIN sem tenant fixo (para testar RBAC em /admin), e
+// vincula a IntegrationConfig do Nibo usando os tokens que já estavam
+// soltos no .env.local (agora criptografados no banco).
 //
 // Idempotente — pode rodar de novo (upsert por nome/email).
 //
@@ -85,6 +86,15 @@ for (const t of TENANTS) {
   });
   console.log(`  IntegrationConfig NIBO vinculada (chave criptografada, não gravada em texto puro).`);
 }
+
+// Usuário SUPER_ADMIN de teste, sem tenant fixo — usado pra validar RBAC (/admin).
+const adminPasswordHash = await hashPassword(DEV_PASSWORD);
+const admin = await prisma.user.upsert({
+  where: { email: 'admin@harlani.local' },
+  create: { email: 'admin@harlani.local', passwordHash: adminPasswordHash, role: 'SUPER_ADMIN', name: 'Admin' },
+  update: { passwordHash: adminPasswordHash, role: 'SUPER_ADMIN' },
+});
+console.log(`\nSUPER_ADMIN: ${admin.email} (senha dev: ${DEV_PASSWORD})`);
 
 await prisma.$disconnect();
 console.log('\nSeed concluído.');

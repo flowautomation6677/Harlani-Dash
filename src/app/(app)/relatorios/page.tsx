@@ -44,7 +44,6 @@ export default function RelatoriosMensaisPage() {
       setError(null);
       try {
         const data = await getFinancialHealthAnalysis(
-          selectedCompany.id,
           selectedMonth,
           customStartDate,
           customEndDate
@@ -70,7 +69,7 @@ export default function RelatoriosMensaisPage() {
 
   const handleExportExcel = async () => {
     try {
-      const fullData = await getClientData(selectedCompany.id);
+      const fullData = await getClientData();
       let periodLabel = 'Ano 2026';
       if (selectedMonth === '2026-m') {
         periodLabel = 'Mês Atual';

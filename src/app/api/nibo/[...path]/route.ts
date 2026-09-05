@@ -34,7 +34,6 @@ export async function GET(
   const { path } = await params;
   const endpoint = path.join('/');
   const targetParams = new URLSearchParams(request.nextUrl.searchParams);
-  targetParams.delete('companyId'); // legado do seletor de empresa no front — ignorado, o tenant é o da sessão
   const query = targetParams.toString() ? `?${targetParams.toString()}` : '';
   const targetUrl = `${NIBO_API_URL}/${endpoint}${query}`;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSession } from '@/lib/auth/getSession';
+import { canAccessPath, ADMIN_REDIRECT_PATH } from '@/lib/auth/rbac';
 
 // Next.js 16 renomeou middleware.ts -> proxy.ts (mesma funcionalidade).
 // Proxy usa runtime Node.js por padrão nessa versão, então node:crypto
@@ -10,6 +11,12 @@ export function proxy(request: NextRequest) {
   if (!session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
+
+  const { pathname } = request.nextUrl;
+  if (!canAccessPath(session.role, pathname)) {
+    return NextResponse.redirect(new URL(ADMIN_REDIRECT_PATH, request.url));
+  }
+
   return NextResponse.next();
 }
 

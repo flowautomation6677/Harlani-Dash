@@ -122,10 +122,10 @@ export default function DashboardPage() {
       setError(null);
       try {
         const [res, banks, cc, runwayData] = await Promise.all([
-          getClientData(selectedCompany.id),
-          getBankAccounts(selectedCompany.id),
-          getCostCenters(selectedCompany.id),
-          getLiquidityRunway(selectedCompany.id, 365)
+          getClientData(),
+          getBankAccounts(),
+          getCostCenters(),
+          getLiquidityRunway(365)
         ]);
         setData(res);
         setBankAccounts(banks);
@@ -154,7 +154,7 @@ export default function DashboardPage() {
         'custom': 'custom'
       };
       try {
-        const h = await getFinancialHealthAnalysis(selectedCompany.id, periodMap[period], startDate, endDate);
+        const h = await getFinancialHealthAnalysis(periodMap[period], startDate, endDate);
         setHealth(h);
       } catch {
         setHealth(null);

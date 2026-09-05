@@ -1,4 +1,4 @@
-export { COMPANIES, type Company } from '@/lib/constants/companies';
+export { type Company } from '@/lib/constants/companies';
 import { validateAndFilterItems, validateItem } from '@/lib/api/niboValidation';
 import {
   NiboCreditScheduleSchema,
@@ -333,10 +333,9 @@ export interface AccountsPayableReceivableSummary {
   accounts: Transaction[];
 }
 
-export const fetchNiboData = async (endpoint: string, params?: Record<string, string>, companyId = '1') => {
+export const fetchNiboData = async (endpoint: string, params?: Record<string, string>) => {
   try {
     const url = new URL(`/api/nibo/${endpoint}`, window.location.origin);
-    url.searchParams.set('companyId', companyId);
     if (params) {
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
     }
@@ -357,8 +356,7 @@ export const fetchNiboDataPaginated = async (
   endpoint: string,
   baseParams: Record<string, string> = {},
   pageSize: number = 500,
-  maxPages: number = 20,
-  companyId = '1'
+  maxPages: number = 20
 ) => {
   let allItems: any[] = [];
   let skip = 0;
@@ -372,7 +370,7 @@ export const fetchNiboDataPaginated = async (
       '$skip': String(skip)
     };
 
-    const res = await fetchNiboData(endpoint, params, companyId);
+    const res = await fetchNiboData(endpoint, params);
     if (!res) {
       throw new Error(`Falha ao buscar dados reais do Nibo em "${endpoint}". Verifique o token/URL configurados.`);
     }
@@ -404,11 +402,11 @@ export interface CategoryTreeItem {
 
 let categoryCache: Record<string, CategoryTreeItem> = {};
 
-export const getCategoryTree = async (companyId = '1'): Promise<Record<string, CategoryTreeItem>> => {
+export const getCategoryTree = async (): Promise<Record<string, CategoryTreeItem>> => {
   if (Object.keys(categoryCache).length > 0) return categoryCache;
 
   try {
-    const treeRes = await fetchNiboData('schedules/categories/tree', undefined, companyId) || await fetchNiboData('categories', undefined, companyId);
+    const treeRes = await fetchNiboData('schedules/categories/tree') || await fetchNiboData('categories');
     const items = Array.isArray(treeRes) ? treeRes : (treeRes?.items || treeRes?.value || []);
 
     const flatten = (list: any[], parent?: string) => {
@@ -475,9 +473,9 @@ export interface CostCenter {
   description: string;
 }
 
-export const getBankAccounts = async (companyId = '1'): Promise<BankAccount[]> => {
+export const getBankAccounts = async (): Promise<BankAccount[]> => {
   try {
-    const res = await fetchNiboData('accounts', undefined, companyId);
+    const res = await fetchNiboData('accounts');
     const items: unknown[] = res?.items || [];
     return items
       .map((raw) => validateItem(raw, NiboBankAccountSchema, 'accounts'))
@@ -499,9 +497,9 @@ export const getBankAccounts = async (companyId = '1'): Promise<BankAccount[]> =
   }
 };
 
-export const getCostCenters = async (companyId = '1'): Promise<CostCenter[]> => {
+export const getCostCenters = async (): Promise<CostCenter[]> => {
   try {
-    const res = await fetchNiboData('costcenters', undefined, companyId);
+    const res = await fetchNiboData('costcenters');
     const items = res?.items || [];
     return items.map((cc: any) => ({
       costCenterId: cc.costCenterId,
@@ -519,11 +517,11 @@ export const getDirectBankStatements = async (_accounts: BankAccount[]): Promise
   return [];
 };
 
-export const getClientData = async (companyId: string) => {
+export const getClientData = async () => {
 
   try {
     // 1. Carregar plano de categorias para enriquecimento
-    const categoryTree = await getCategoryTree(companyId);
+    const categoryTree = await getCategoryTree();
 
     // 2. Buscar Receitas e Despesas com Paginação OData Completa
     // Por padrão o Nibo pode filtrar pelo mês atual se não enviarmos um $filter.
@@ -543,9 +541,9 @@ export const getClientData = async (companyId: string) => {
     };
 
     const [rawCredits, rawDebits, bankAccounts] = await Promise.all([
-      fetchNiboDataPaginated('schedules/credit', odataParams, 500, 20, companyId),
-      fetchNiboDataPaginated('schedules/debit', odataParams, 500, 20, companyId),
-      getBankAccounts(companyId)
+      fetchNiboDataPaginated('schedules/credit', odataParams, 500, 20),
+      fetchNiboDataPaginated('schedules/debit', odataParams, 500, 20),
+      getBankAccounts()
     ]);
 
     // Mapear para o formato de Transação do Dashboard
@@ -790,12 +788,11 @@ export const getClientData = async (companyId: string) => {
 };
 
 export const getDREData = async (
-  companyId: string,
   period: string = '2026-ytd',
   customStartDate?: string,
   customEndDate?: string
 ): Promise<DREData> => {
-  const clientData = await getClientData(companyId);
+  const clientData = await getClientData();
   const txs = clientData.transactions;
 
   const today = new Date();
@@ -1101,8 +1098,8 @@ export const getDREData = async (
   };
 };
 
-export const getCashFlowData = async (companyId: string): Promise<DetailedCashFlowData> => {
-  const clientData = await getClientData(companyId);
+export const getCashFlowData = async (): Promise<DetailedCashFlowData> => {
+  const clientData = await getClientData();
   const txs = clientData.transactions;
 
   // Gerar fluxo de caixa diário baseado nas transações pagas (Realizado)
@@ -1256,8 +1253,8 @@ export const getCashFlowData = async (companyId: string): Promise<DetailedCashFl
   };
 };
 
-export const getAccountsSummary = async (companyId: string): Promise<AccountsPayableReceivableSummary> => {
-  const clientData = await getClientData(companyId);
+export const getAccountsSummary = async (): Promise<AccountsPayableReceivableSummary> => {
+  const clientData = await getClientData();
   const txs = clientData.transactions;
 
   const today = new Date();
@@ -1307,8 +1304,8 @@ export interface AgingBucketItem {
 // (comparando dueDate e, para os já pagos hoje, settlementDate). Não temos
 // snapshots históricos reais do Nibo, então esta é uma reconstrução a partir
 // dos dados de schedules já carregados — conforme decidido, é aceitável.
-export const getAgingHistory = async (companyId: string, monthsBack: number = 6): Promise<AgingBucketItem[]> => {
-  const clientData = await getClientData(companyId);
+export const getAgingHistory = async (monthsBack: number = 6): Promise<AgingBucketItem[]> => {
+  const clientData = await getClientData();
   const txs = clientData.transactions;
   const today = new Date();
   const result: AgingBucketItem[] = [];
@@ -1363,8 +1360,8 @@ export interface LiquidityRunwayPoint {
 // datas de vencimento (títulos já atrasados são tratados como exigíveis
 // imediatamente, no dia de hoje). Parte do saldoAtual já calculado em
 // getClientData — não recalcula esse número, só evolui a partir dele.
-export const getLiquidityRunway = async (companyId: string, days: number = 60): Promise<LiquidityRunwayPoint[]> => {
-  const clientData = await getClientData(companyId);
+export const getLiquidityRunway = async (days: number = 60): Promise<LiquidityRunwayPoint[]> => {
+  const clientData = await getClientData();
   const txs = clientData.transactions;
 
   const today = new Date();
@@ -1399,10 +1396,10 @@ export const getLiquidityRunway = async (companyId: string, days: number = 60): 
   return points;
 };
 
-export const getStakeholders = async (companyId: string): Promise<Stakeholder[]> => {
+export const getStakeholders = async (): Promise<Stakeholder[]> => {
   try {
-    const res = await fetchNiboData('stakeholders', undefined, companyId);
-    const clientData = await getClientData(companyId);
+    const res = await fetchNiboData('stakeholders');
+    const clientData = await getClientData();
     const txs = clientData.transactions;
 
     const items = res?.items || [];
@@ -1430,12 +1427,11 @@ export const getStakeholders = async (companyId: string): Promise<Stakeholder[]>
 };
 
 export const getFinancialHealthAnalysis = async (
-  companyId: string, 
   period: string = '2026-ytd',
   customStartDate?: string,
   customEndDate?: string
 ): Promise<FinancialHealthAnalysis> => {
-  const clientData = await getClientData(companyId);
+  const clientData = await getClientData();
   const txs = clientData.transactions;
 
   const today = new Date();

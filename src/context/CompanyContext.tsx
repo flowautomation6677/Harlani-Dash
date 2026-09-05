@@ -1,39 +1,49 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { COMPANIES, Company } from '@/lib/constants/companies';
+import React, { createContext, useContext, ReactNode } from 'react';
+import type { Company } from '@/lib/constants/companies';
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  document: string | null;
+  isActive: boolean;
+}
 
 interface CompanyContextType {
   selectedCompany: Company;
-  setSelectedCompanyId: (id: string) => void;
-  companies: Company[];
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
-const defaultCompany: Company = {
-  id: '1',
-  name: 'Harlani Tecnologia LTDA',
-  cnpj: '12.345.678/0001-90',
-  segment: 'Tecnologia & SaaS',
-  status: 'Ativa'
+// Usado só enquanto o tenant real (vindo da sessão) ainda não carregou.
+const LOADING_COMPANY: Company = {
+  id: 'loading',
+  name: 'Carregando...',
+  cnpj: '—',
+  segment: 'Gestão Financeira',
+  status: 'Pendente',
 };
 
-export function CompanyProvider({ children }: { children: ReactNode }) {
-  const [selectedCompanyId, setSelectedCompanyIdState] = useState<string>('1');
+interface CompanyProviderProps {
+  children: ReactNode;
+  /** Tenant do usuário logado (vem da sessão via /api/auth/me). Cada usuário
+   * pertence a um único tenant — não existe mais "troca de empresa". */
+  tenant?: TenantInfo | null;
+}
 
-  const companyList = COMPANIES || [defaultCompany];
-  const selectedCompany = companyList.find(c => c?.id === selectedCompanyId) || companyList[0] || defaultCompany;
+export function CompanyProvider({ children, tenant }: CompanyProviderProps) {
+  const selectedCompany: Company = tenant
+    ? {
+        id: tenant.id,
+        name: tenant.name,
+        cnpj: tenant.document || 'CNPJ não cadastrado',
+        segment: 'Gestão Financeira',
+        status: tenant.isActive ? 'Ativa' : 'Inativa',
+      }
+    : LOADING_COMPANY;
 
-  const setSelectedCompanyId = (id: string) => {
-    setSelectedCompanyIdState(id);
-  };
-
-  return (
-    <CompanyContext.Provider value={{ selectedCompany, setSelectedCompanyId, companies: companyList }}>
-      {children}
-    </CompanyContext.Provider>
-  );
+  return <CompanyContext.Provider value={{ selectedCompany }}>{children}</CompanyContext.Provider>;
 }
 
 export function useCompany() {

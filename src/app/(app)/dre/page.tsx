@@ -141,9 +141,9 @@ export default function DREPage() {
       setError(null);
       try {
         const [dreData, healthData, cashFlowData] = await Promise.all([
-          getDREData(selectedCompany.id, effectiveApiPeriod, effectiveStart, effectiveEnd),
-          getFinancialHealthAnalysis(selectedCompany.id, effectiveApiPeriod, effectiveStart, effectiveEnd),
-          isShortRange(period, startDate, endDate) ? getCashFlowData(selectedCompany.id) : Promise.resolve(null)
+          getDREData(effectiveApiPeriod, effectiveStart, effectiveEnd),
+          getFinancialHealthAnalysis(effectiveApiPeriod, effectiveStart, effectiveEnd),
+          isShortRange(period, startDate, endDate) ? getCashFlowData() : Promise.resolve(null)
         ]);
         setDre(dreData);
         setHealth(healthData);
@@ -165,7 +165,7 @@ export default function DREPage() {
       const { getClientData } = await import('@/lib/api/niboClient');
       const { exportFinancialsToExcel } = await import('@/lib/utils/exportToExcel');
       
-      const fullData = await getClientData(selectedCompany.id);
+      const fullData = await getClientData();
       
       exportFinancialsToExcel({
         company: selectedCompany,

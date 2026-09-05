@@ -2,133 +2,102 @@
  * CompanyContext.test.tsx
  *
  * Testes unitarios para o CompanyContext.
- * Verifica se a troca de empresa atualiza o estado corretamente,
- * se o estado inicial e valido, e se o contexto e protegido contra
- * uso fora do Provider.
+ * Desde a Fase 5 (multi-tenant), não existe mais lista de empresas nem troca
+ * manual — o "selectedCompany" é derivado do tenant real do usuário logado
+ * (passado via prop, vindo de /api/auth/me). Cobrimos: derivação correta a
+ * partir do tenant, fallback de loading, e proteção de contexto.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
-import { CompanyProvider, useCompany } from '@/context/CompanyContext';
-import { COMPANIES } from '@/lib/constants/companies';
-
-// ---------------------------------------------------------------------------
-// Componente auxiliar para consumir o contexto nos testes
-// ---------------------------------------------------------------------------
+import { CompanyProvider, useCompany, type TenantInfo } from '@/context/CompanyContext';
 
 function TestConsumer() {
-  const { selectedCompany, setSelectedCompanyId, companies } = useCompany();
+  const { selectedCompany } = useCompany();
   return (
     <div>
       <span data-testid="company-id">{selectedCompany.id}</span>
       <span data-testid="company-name">{selectedCompany.name}</span>
-      <span data-testid="company-count">{companies.length}</span>
-      <button
-        onClick={() => setSelectedCompanyId('2')}
-        data-testid="switch-to-2"
-      >
-        Trocar para empresa 2
-      </button>
-      <button
-        onClick={() => setSelectedCompanyId('3')}
-        data-testid="switch-to-3"
-      >
-        Trocar para empresa 3
-      </button>
-      <button
-        onClick={() => setSelectedCompanyId('1')}
-        data-testid="switch-to-1"
-      >
-        Voltar para empresa 1
-      </button>
+      <span data-testid="company-cnpj">{selectedCompany.cnpj}</span>
+      <span data-testid="company-status">{selectedCompany.status}</span>
     </div>
   );
 }
 
-function renderWithProvider() {
-  return render(
-    <CompanyProvider>
-      <TestConsumer />
-    </CompanyProvider>
-  );
-}
+const mockTenant: TenantInfo = {
+  id: 'tenant-1',
+  name: 'Harlani Rodrigues',
+  document: '23.121.297/0001-49',
+  isActive: true,
+};
 
-// ---------------------------------------------------------------------------
-// Suite 1: Estado inicial
-// ---------------------------------------------------------------------------
-
-describe('CompanyContext — estado inicial', () => {
-  it('deve iniciar com a empresa de id "1" selecionada', () => {
-    renderWithProvider();
-    expect(screen.getByTestId('company-id').textContent).toBe('1');
-  });
-
-  it('deve iniciar com o nome correto da empresa padrao', () => {
-    renderWithProvider();
-    // O nome da empresa 1 deve corresponder ao que esta em COMPANIES
-    const empresa1 = COMPANIES.find((c) => c.id === '1');
-    expect(screen.getByTestId('company-name').textContent).toBe(empresa1!.name);
-  });
-
-  it('deve expor todas as empresas cadastradas no contexto', () => {
-    renderWithProvider();
-    expect(screen.getByTestId('company-count').textContent).toBe(
-      String(COMPANIES.length)
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Suite 2: Troca de empresa
-// ---------------------------------------------------------------------------
-
-describe('CompanyContext — gerenciamento de empresa', () => {
-  it('deve manter a empresa selecionada', async () => {
-    const user = userEvent.setup();
-    renderWithProvider();
-
-    // Estado inicial: empresa 1
-    expect(screen.getByTestId('company-id').textContent).toBe('1');
-
-    await user.click(screen.getByTestId('switch-to-1'));
-    expect(screen.getByTestId('company-id').textContent).toBe('1');
-  });
-
-  it('deve usar empresa padrao se id invalido for passado (fallback para primeiro da lista)', async () => {
-    const user = userEvent.setup();
-    // Criar um provider com ID invalido via act
-    let setId: (id: string) => void = () => {};
-
-    function InvalidIdConsumer() {
-      const { selectedCompany, setSelectedCompanyId } = useCompany();
-      setId = setSelectedCompanyId;
-      return <span data-testid="fallback-id">{selectedCompany.id}</span>;
-    }
-
+describe('CompanyContext — derivação a partir do tenant real', () => {
+  it('deve expor os dados do tenant logado como selectedCompany', () => {
     render(
-      <CompanyProvider>
-        <InvalidIdConsumer />
+      <CompanyProvider tenant={mockTenant}>
+        <TestConsumer />
       </CompanyProvider>
     );
 
-    // Tentar setar um ID que nao existe
-    act(() => setId('empresa-inexistente-999'));
+    expect(screen.getByTestId('company-id').textContent).toBe('tenant-1');
+    expect(screen.getByTestId('company-name').textContent).toBe('Harlani Rodrigues');
+    expect(screen.getByTestId('company-cnpj').textContent).toBe('23.121.297/0001-49');
+  });
 
-    // O contexto deve fazer fallback para a primeira empresa da lista
-    const fallbackId = COMPANIES[0].id;
-    expect(screen.getByTestId('fallback-id').textContent).toBe(fallbackId);
+  it('deve refletir status "Ativa" quando o tenant está ativo', () => {
+    render(
+      <CompanyProvider tenant={mockTenant}>
+        <TestConsumer />
+      </CompanyProvider>
+    );
+
+    expect(screen.getByTestId('company-status').textContent).toBe('Ativa');
+  });
+
+  it('deve refletir status "Inativa" quando o tenant está desativado', () => {
+    render(
+      <CompanyProvider tenant={{ ...mockTenant, isActive: false }}>
+        <TestConsumer />
+      </CompanyProvider>
+    );
+
+    expect(screen.getByTestId('company-status').textContent).toBe('Inativa');
+  });
+
+  it('deve usar "CNPJ não cadastrado" quando o tenant não tem documento', () => {
+    render(
+      <CompanyProvider tenant={{ ...mockTenant, document: null }}>
+        <TestConsumer />
+      </CompanyProvider>
+    );
+
+    expect(screen.getByTestId('company-cnpj').textContent).toBe('CNPJ não cadastrado');
+  });
+
+  it('deve cair num estado de "Carregando..." quando o tenant ainda não chegou (ex: sessão de SUPER_ADMIN sem tenant, ou fetch em andamento)', () => {
+    render(
+      <CompanyProvider tenant={null}>
+        <TestConsumer />
+      </CompanyProvider>
+    );
+
+    expect(screen.getByTestId('company-name').textContent).toBe('Carregando...');
+  });
+
+  it('deve usar o mesmo fallback quando nenhuma prop tenant é passada', () => {
+    render(
+      <CompanyProvider>
+        <TestConsumer />
+      </CompanyProvider>
+    );
+
+    expect(screen.getByTestId('company-name').textContent).toBe('Carregando...');
   });
 });
 
-// ---------------------------------------------------------------------------
-// Suite 3: Protecao de contexto
-// ---------------------------------------------------------------------------
-
-describe('CompanyContext — protecao de contexto', () => {
-  it('deve lancar erro quando useCompany e usado fora do CompanyProvider', () => {
-    // Suprimir o erro do console no ambiente de teste
+describe('CompanyContext — proteção de contexto', () => {
+  it('deve lançar erro quando useCompany é usado fora do CompanyProvider', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     function OrphanConsumer() {
@@ -136,9 +105,7 @@ describe('CompanyContext — protecao de contexto', () => {
       return null;
     }
 
-    expect(() => render(<OrphanConsumer />)).toThrow(
-      'useCompany must be used within a CompanyProvider'
-    );
+    expect(() => render(<OrphanConsumer />)).toThrow('useCompany must be used within a CompanyProvider');
 
     consoleSpy.mockRestore();
   });
