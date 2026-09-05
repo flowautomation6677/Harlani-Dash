@@ -42,6 +42,16 @@ import {
 
 const MONTH_ABBR_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
+// receberMes/pagarMes aqui são sempre o valor real do período filtrado (podem
+// ser 0). receberTotalGeral/pagarTotalGeral são o total geral pendente da
+// empresa (data.metrics.receberMes/pagarMes vindo de getClientData()),
+// independente do filtro — os dois nunca devem ser exibidos como se fossem
+// o mesmo número.
+type DashboardMetrics = ClientMetrics & {
+  receberTotalGeral: number;
+  pagarTotalGeral: number;
+};
+
 function formatSyncLabel(d: Date): string {
   const now = new Date();
   const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -203,10 +213,15 @@ export default function DashboardPage() {
     // selecionada (ex: Ano) cobria o mesmo intervalo já somado lá.
     const saldoAtual = data.metrics.saldoAtual;
 
-    const computedMetrics: ClientMetrics = {
+    const computedMetrics: DashboardMetrics = {
       saldoAtual,
-      receberMes: receitasPendentes > 0 ? receitasPendentes : data.metrics.receberMes,
-      pagarMes: despesasPendentes > 0 ? despesasPendentes : data.metrics.pagarMes,
+      // Valor do período selecionado — sempre o real, inclusive quando é 0.
+      // Nunca cair de volta para o total geral como se fosse o número do período.
+      receberMes: receitasPendentes,
+      pagarMes: despesasPendentes,
+      // Total geral pendente da empresa, independente do filtro de período.
+      receberTotalGeral: data.metrics.receberMes,
+      pagarTotalGeral: data.metrics.pagarMes,
       ticketMedio: txs.length > 0 ? Math.round((receitasPagas + receitasPendentes) / (txs.length || 1)) : data.metrics.ticketMedio,
       taxaInadimplencia: data.metrics.taxaInadimplencia,
       margemOperacional: data.metrics.margemOperacional,
@@ -344,10 +359,13 @@ export default function DashboardPage() {
   const cashFlowPartialIndex = getPartialIndex(displayCashFlow, (item) => item.key);
   const chartData = withPartialSplit(displayCashFlow, ['receitas', 'despesas', 'lucro'], cashFlowPartialIndex);
 
-  // Índice de Liquidez Corrente: (Saldo + A Receber) / A Pagar. Sem passivo
-  // no período, a divisão não faz sentido — tratamos como "sem passivos".
-  const liquidezCorrente = computedMetrics.pagarMes > 0
-    ? (computedMetrics.saldoAtual + computedMetrics.receberMes) / computedMetrics.pagarMes
+  // Índice de Liquidez Corrente: (Saldo + A Receber) / A Pagar. É uma foto do
+  // balanço (estoque), não pode variar conforme a aba de período — por isso
+  // usa sempre o total geral em aberto (receberTotalGeral/pagarTotalGeral),
+  // nunca o valor filtrado do período (computedMetrics.receberMes/pagarMes).
+  // Sem passivo em aberto, a divisão não faz sentido — tratamos como "sem passivos".
+  const liquidezCorrente = computedMetrics.pagarTotalGeral > 0
+    ? (computedMetrics.saldoAtual + computedMetrics.receberTotalGeral) / computedMetrics.pagarTotalGeral
     : null;
   const liquidezLabel = liquidezCorrente === null
     ? 'Sem passivos'
@@ -641,10 +659,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 2: A Receber */}
+        {/* Card 2: A Receber — título explicita que o valor principal é
+            recortado pelo período selecionado (não o saldo total de AR),
+            para não conflitar com a linha "Total em aberto" abaixo. */}
         <div className="card card-interactive">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-semibold text-muted">CONTAS A RECEBER</span>
+            <span className="text-xs font-semibold text-muted">A RECEBER NO PERÍODO</span>
             <div className="p-2 rounded-lg bg-green-50 text-success">
               <ArrowUpRight size={18} />
             </div>
@@ -652,15 +672,21 @@ export default function DashboardPage() {
           <div className="text-2xl font-bold mb-1 text-success">
             R$ {computedMetrics.receberMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-muted">
+          <div className="text-xs text-muted mb-2">
             Receitas a liquidar no período
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted">
+            <span>Total em aberto:</span>
+            <span className="font-bold text-success">
+              R$ {computedMetrics.receberTotalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
 
-        {/* Card 3: A Pagar */}
+        {/* Card 3: A Pagar — mesmo motivo do título do Card 2 acima. */}
         <div className="card card-interactive">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-semibold text-muted">CONTAS A PAGAR</span>
+            <span className="text-xs font-semibold text-muted">A PAGAR NO PERÍODO</span>
             <div className="p-2 rounded-lg bg-red-50 text-danger">
               <ArrowDownRight size={18} />
             </div>
@@ -668,8 +694,14 @@ export default function DashboardPage() {
           <div className="text-2xl font-bold mb-1 text-danger">
             R$ {computedMetrics.pagarMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-muted">
+          <div className="text-xs text-muted mb-2">
             Despesas previstas a liquidar
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted">
+            <span>Total em aberto:</span>
+            <span className="font-bold text-danger">
+              R$ {computedMetrics.pagarTotalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
 
