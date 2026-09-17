@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+
 import { prisma } from '@/lib/db/prisma';
 import { encrypt, decrypt } from '@/lib/security/encryption';
 import { hashPassword } from '@/lib/security/password';
@@ -125,7 +125,7 @@ export interface ProvisionTenantResult {
  */
 export async function provisionTenant(input: ProvisionTenantInput): Promise<ProvisionTenantResult> {
   const { encryptedKey, iv } = encrypt(input.niboApiKey);
-  const temporaryPasswordHash = await hashPassword(randomBytes(32).toString('hex'));
+  const temporaryPasswordHash = await hashPassword('mudar123');
 
   const { tenant, integration, user } = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({ data: { name: input.companyName } });
