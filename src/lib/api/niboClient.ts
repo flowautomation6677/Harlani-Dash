@@ -65,7 +65,18 @@ export interface Transaction {
 // vez de tentar adivinhar por palavra-chave na descrição) para que Entradas/
 // Saídas do app batam exatamente com o "painel realizado" exportado do Nibo.
 export function isOperatingRevenue(t: Pick<Transaction, 'type' | 'parentCategory'>): boolean {
-  return t.type === 'receita' && t.parentCategory === 'Receitas operacionais';
+  // O Nibo pode retornar variantes do nome da categoria pai:
+  // - 'Receitas operacionais'
+  // - 'Receitas operacionais e outras receitas'
+  // - 'Receitas Operacionais' (com maiúscula diferente)
+  // Usamos includes() case-insensitive para cobrir todos os casos.
+  if (t.type !== 'receita') return false;
+  if (!t.parentCategory) {
+    // Se não veio parentCategory da API, assumimos que é operacional
+    // (o fallback no mapeamento já tenta resolver pelo plano de categorias)
+    return true;
+  }
+  return t.parentCategory.toLowerCase().includes('receitas operacionais');
 }
 
 export function classifyTransactionTag(
